@@ -1,5 +1,10 @@
 """配置中心 - 指数、基金、估值阈值"""
 
+import os
+
+# 脚本所在目录，用于生成绝对路径
+_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # ===== 监控的指数 =====
 # BaoStock 指数代码格式：sh.000300 / sz.399006
 # legulegu 名称需与 BaoStock 代码对应
@@ -29,4 +34,4 @@ FUND_RATIO = 0.8
 SAVINGS_RATIO = 0.2
 
 # ===== 数据存储 =====
-HISTORY_FILE = "history.json"
+HISTORY_FILE = os.path.join(_DIR, "history.json")

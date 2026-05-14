@@ -2,6 +2,7 @@
 
 import json
 import os
+import tempfile
 from datetime import datetime
 from config import (
     UNDERVALUED_THRESHOLD,
@@ -71,18 +72,30 @@ def calculate_monthly_plan(avg_pe_percentile: float = None) -> dict:
 
 
 def save_history(index_name: str, pe_percentile: float, pe: float, close: float):
-    """保存历史数据到 JSON 文件"""
+    """保存历史数据到 JSON 文件（去重 + 原子写入）"""
     history = {}
     if os.path.exists(HISTORY_FILE):
         try:
             with open(HISTORY_FILE, "r", encoding="utf-8") as f:
                 history = json.load(f)
         except (json.JSONDecodeError, IOError):
+            # 损坏时备份原文件，避免静默丢数据
+            backup = HISTORY_FILE + ".bak"
+            try:
+                os.replace(HISTORY_FILE, backup)
+                print(f"  ⚠ history.json 已损坏，已备份为 {backup}")
+            except OSError:
+                print("  ⚠ history.json 已损坏且无法备份")
             history = {}
 
     today = datetime.now().strftime("%Y-%m-%d")
     if index_name not in history:
         history[index_name] = []
+
+    # 去重：同一天同一指数只保留最新一条
+    history[index_name] = [
+        r for r in history[index_name] if r.get("date") != today
+    ]
 
     history[index_name].append({
         "date": today,
@@ -94,5 +107,17 @@ def save_history(index_name: str, pe_percentile: float, pe: float, close: float)
     # 只保留最近 365 条记录
     history[index_name] = history[index_name][-365:]
 
-    with open(HISTORY_FILE, "w", encoding="utf-8") as f:
-        json.dump(history, f, ensure_ascii=False, indent=2)
+    # 原子写入：先写临时文件，再替换，防止中途断电损坏
+    dir_name = os.path.dirname(HISTORY_FILE) or "."
+    fd, tmp_path = tempfile.mkstemp(dir=dir_name, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(history, f, ensure_ascii=False, indent=2)
+        os.replace(tmp_path, HISTORY_FILE)
+    except Exception:
+        # 写入失败时清理临时文件
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise

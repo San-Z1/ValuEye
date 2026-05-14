@@ -3,20 +3,14 @@
 # 作者：SanZ1
 # 创建时间：2026-05-14
 
-echo "🚀 启动大学生理财监控系统..."
-echo "⏰ 开始时间: $(date)"
+echo "启动大学生理财监控系统..."
+echo "开始时间: $(date)"
 
-# 进入脚本目录
+# 进入脚本所在目录
 cd "$(dirname "$0")"
 
-# 运行Python脚本
-python3 market_monitor.py
+# 运行 v2 主程序
+python3 finance_monitor/main.py
 
-if [ $? -eq 0 ]; then
-    echo ""
-    echo "✅ 理财监控完成！"
-    echo "⏰ 结束时间: $(date)"
-else
-    echo "❌ 程序运行出错，请检查Python安装"
-    exit 1
-fi
+echo ""
+echo "完成时间: $(date)"
