@@ -24,7 +24,7 @@ def print_header():
     """打印报告头部"""
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
     console.print()
-    console.rule(f"[bold cyan]PennyPilot 理财晨报 - {now}[/]")
+    console.rule(f"[bold cyan]ValuEye 理财晨报 - {now}[/]")
     console.print()
 
 
@@ -34,7 +34,7 @@ def print_index_table(indices_data: list):
     Args:
         indices_data: [{"name": "沪深300", "close": 3985.23, "change_pct": 1.25, "date": "2026-05-14"}, ...]
     """
-    table = Table(title="PennyPilot 核心指数行情", show_header=True, header_style="bold cyan")
+    table = Table(title="ValuEye 核心指数行情", show_header=True, header_style="bold cyan")
     table.add_column("指数", style="bold", min_width=10)
     table.add_column("最新价", justify="right")
     table.add_column("涨跌幅", justify="right")

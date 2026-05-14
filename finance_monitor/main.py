@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PennyPilot - 大学生理财监控"""
+"""ValuEye - 大学生理财监控"""
 
 import sys
 import os

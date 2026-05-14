@@ -1,4 +1,4 @@
-# PennyPilot - 大学生理财监控系统
+# ValuEye - 大学生理财监控系统
 
 一个专为大学生设计的轻量级 A 股指数监控与定投决策工具。每天自动抓取市场数据，帮你判断该买还是该等。
 
@@ -15,8 +15,8 @@
 
 ```bash
 # 克隆项目
-git clone https://github.com/你的用户名/PennyPilot.git
-cd PennyPilot/finance_monitor
+git clone https://github.com/你的用户名/ValuEye.git
+cd ValuEye/finance_monitor
 
 # 安装依赖
 pip install -r requirements.txt
@@ -33,7 +33,7 @@ Windows 用户也可以双击 `手动查看.bat` 直接运行。
 ## 输出示例
 
 ```
-                     PennyPilot 核心指数行情
+                     ValuEye 核心指数行情
 ┌────────────┬─────────┬────────┬────────────┐
 │ 指数       │  最新价 │ 涨跌幅 │    日期    │
 ├────────────┼─────────┼────────┼────────────┤
@@ -81,7 +81,7 @@ OVERVALUED_THRESHOLD = 70    # 高于此值 = 高估
 ## 项目结构
 
 ```
-PennyPilot/
+ValuEye/
 ├── finance_monitor/
 │   ├── main.py           # 入口，串联整个流程
 │   ├── config.py         # 配置：指数、基金、阈值、预算
