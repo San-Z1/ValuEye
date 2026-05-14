@@ -28,6 +28,13 @@ pip install -r requirements.txt
 python main.py
 ```
 
+## 测试
+
+```bash
+pip install pytest
+python -m pytest finance_monitor/ -v
+```
+
 Windows 用户也可以双击 `手动查看.bat` 直接运行。
 
 ## 输出示例
@@ -88,12 +95,14 @@ ValuEye/
 │   ├── data_fetcher.py   # 数据获取：BaoStock + akshare
 │   ├── valuation.py      # 分析：估值判断 + 定投计算
 │   ├── display.py        # 输出：rich 美化表格
+│   ├── test_valuation.py # 核心逻辑测试
 │   ├── requirements.txt  # Python 依赖
 │   ├── 手动查看.bat       # 双击运行
 │   ├── run_daily.bat     # 定时任务用
 │   ├── setup_task.bat    # 一键设置 Windows 定时任务
 │   └── 教程.md           # 完整教程（从零开始）
 ├── market_monitor.py     # v1 原型（已弃用）
+├── LICENSE
 ├── README.md
 └── .gitignore
 ```

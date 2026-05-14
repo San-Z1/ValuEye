@@ -3,7 +3,6 @@
 
 import sys
 import os
-import locale
 
 # Windows 终端中文编码修复
 if sys.platform == "win32":
@@ -17,7 +16,7 @@ if sys.platform == "win32":
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from config import INDICES, FUNDS
-from data_fetcher import get_index_data, get_fund_nav, get_index_valuation
+from data_fetcher import bs_login, bs_logout, get_index_data, get_fund_nav, get_index_valuation
 from valuation import judge_valuation, calculate_monthly_plan, save_history
 from display import (
     console,
@@ -81,6 +80,16 @@ def fetch_all_fund_nav() -> list:
 def main():
     print_header()
 
+    # 登录 BaoStock（全局一次）
+    bs_login()
+
+    try:
+        _run()
+    finally:
+        bs_logout()
+
+
+def _run():
     # 1. 抓取指数行情
     console.print("[bold]1. 获取指数行情[/]")
     indices_data = fetch_all_index_data()

@@ -5,16 +5,16 @@ import akshare as ak
 from datetime import datetime, timedelta
 
 
-def _bs_login():
-    """BaoStock 登录"""
+def bs_login():
+    """BaoStock 登录（程序启动时调用一次）"""
     lg = bs.login()
     if lg.error_code != "0":
         raise ConnectionError(f"BaoStock 登录失败: {lg.error_msg}")
     return lg
 
 
-def _bs_logout():
-    """BaoStock 登出"""
+def bs_logout():
+    """BaoStock 登出（程序退出时调用一次）"""
     bs.logout()
 
 
@@ -26,47 +26,48 @@ def get_index_data(index_code: str) -> dict:
 
     Returns:
         {"close": 收盘价, "change_pct": 涨跌幅%, "date": 日期}
+
+    注意：调用前需先调用 bs_login()
     """
-    _bs_login()
+    today = datetime.now().strftime("%Y-%m-%d")
+    # 往前多取几天，确保非交易日也能拿到数据
+    start = (datetime.now() - timedelta(days=10)).strftime("%Y-%m-%d")
+
+    rs = bs.query_history_k_data_plus(
+        index_code,
+        "date,close,preclose",
+        start_date=start,
+        end_date=today,
+        frequency="d",
+        adjustflag="3",
+    )
+
+    rows = []
+    while rs.error_code == "0" and rs.next():
+        rows.append(rs.get_row_data())
+
+    if not rows:
+        return None
+
+    # 取最后一个交易日
+    latest = rows[-1]
+    date, close_str, preclose_str = latest[0], latest[1], latest[2]
+
+    if not close_str or not preclose_str:
+        return None
+
     try:
-        today = datetime.now().strftime("%Y-%m-%d")
-        # 往前多取几天，确保非交易日也能拿到数据
-        start = (datetime.now() - timedelta(days=10)).strftime("%Y-%m-%d")
-
-        rs = bs.query_history_k_data_plus(
-            index_code,
-            "date,close,preclose",
-            start_date=start,
-            end_date=today,
-            frequency="d",
-            adjustflag="3",
-        )
-
-        rows = []
-        while rs.error_code == "0" and rs.next():
-            rows.append(rs.get_row_data())
-
-        if not rows:
-            return None
-
-        # 取最后一个交易日
-        latest = rows[-1]
-        date, close_str, preclose_str = latest[0], latest[1], latest[2]
-
-        if not close_str or not preclose_str:
-            return None
-
         close = float(close_str)
         preclose = float(preclose_str)
-        change_pct = ((close - preclose) / preclose) * 100 if preclose else 0
+    except (ValueError, TypeError):
+        return None
+    change_pct = ((close - preclose) / preclose) * 100 if preclose else 0
 
-        return {
-            "close": close,
-            "change_pct": round(change_pct, 2),
-            "date": date,
-        }
-    finally:
-        _bs_logout()
+    return {
+        "close": close,
+        "change_pct": round(change_pct, 2),
+        "date": date,
+    }
 
 
 def get_fund_nav(fund_code: str) -> dict:
@@ -110,7 +111,7 @@ def get_index_valuation(lg_name: str) -> dict:
         lg_name: 乐咕乐股指数名称，如 "沪深300"
 
     Returns:
-        {"pe": 动态市盈率, "pe_percentile": PE百分位(%)}
+        {"pe": 静态市盈率, "pe_percentile": 静态市盈率中位数(%)}
     """
     try:
         df = ak.stock_index_pe_lg(symbol=lg_name)
@@ -118,9 +119,11 @@ def get_index_valuation(lg_name: str) -> dict:
             return None
 
         latest = df.iloc[-1]
-        # col[3] = 动态市盈率, col[4] = 动态PE百分位
-        pe = float(latest.iloc[3])
-        pe_percentile = float(latest.iloc[4])
+        try:
+            pe = float(latest["静态市盈率"])
+            pe_percentile = float(latest["静态市盈率中位数"])
+        except (ValueError, TypeError):
+            return None
 
         return {
             "pe": round(pe, 2),
