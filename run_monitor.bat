@@ -1,6 +1,6 @@
 @echo off
 REM 大学生理财监控脚本 - Windows启动批处理
-REM 作者：Claude Code
+REM 作者：SanZ1
 REM 创建时间：2026-05-14
 
 echo 🚀 启动大学生理财监控系统...
