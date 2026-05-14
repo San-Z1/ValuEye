@@ -15,7 +15,7 @@
 
 ```bash
 # 克隆项目
-git clone https://github.com/你的用户名/ValuEye.git
+git clone https://github.com/San-Z1/ValuEye.git
 cd ValuEye/finance_monitor
 
 # 安装依赖
