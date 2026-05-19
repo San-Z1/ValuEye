@@ -1,123 +1,113 @@
-"""估值分析与投资建议模块"""
+"""Valuation logic and monthly investment planning."""
 
-import json
-import os
-import tempfile
-from datetime import datetime
-from config import (
-    UNDERVALUED_THRESHOLD,
-    OVERVALUED_THRESHOLD,
-    MONTHLY_BUDGET,
-    FUND_RATIO,
-    SAVINGS_RATIO,
-    HISTORY_FILE,
-)
+from __future__ import annotations
+
+from typing import Any
+
+try:  # pragma: no cover - import shim for direct script execution
+    from .config import (
+        FUND_RATIO,
+        HISTORY_FILE,
+        MONTHLY_BUDGET,
+        OVERVALUED_THRESHOLD,
+        SAVINGS_RATIO,
+        UNDERVALUED_THRESHOLD,
+    )
+    from .history import save_history as _save_history
+except ImportError:  # pragma: no cover
+    from config import (
+        FUND_RATIO,
+        HISTORY_FILE,
+        MONTHLY_BUDGET,
+        OVERVALUED_THRESHOLD,
+        SAVINGS_RATIO,
+        UNDERVALUED_THRESHOLD,
+    )
+    from history import save_history as _save_history
 
 
-def judge_valuation(pe_percentile: float) -> dict:
-    """根据 PE 百分位判断市场状态
-
-    Returns:
-        {"level": "低估"/"合理"/"高估", "advice": 建议文字, "signal": 买入/持有/观望}
-    """
+def judge_valuation(pe_percentile: float | None) -> dict[str, str]:
+    """Judge market state from the PE percentile."""
     if pe_percentile is None:
-        return {"level": "未知", "advice": "数据不足，无法判断", "signal": "观望"}
+        return {
+            "level": "未知",
+            "advice": "数据不足，暂时无法判断",
+            "signal": "观望",
+        }
 
-    if pe_percentile < UNDERVALUED_THRESHOLD:
+    value = float(pe_percentile)
+    if value < UNDERVALUED_THRESHOLD:
         return {
             "level": "低估",
             "advice": "市场处于历史低估区间，适合定投买入",
             "signal": "买入",
         }
-    elif pe_percentile < OVERVALUED_THRESHOLD:
+    if value < OVERVALUED_THRESHOLD:
         return {
             "level": "合理",
             "advice": "市场估值合理，可继续定投或持有",
             "signal": "持有",
         }
-    else:
-        return {
-            "level": "高估",
-            "advice": "市场估值偏高，建议观望或分批止盈",
-            "signal": "观望",
-        }
+    return {
+        "level": "高估",
+        "advice": "市场估值偏高，建议观望或分批止盈",
+        "signal": "观望",
+    }
 
 
-def calculate_monthly_plan(avg_pe_percentile: float = None) -> dict:
-    """计算每月投资分配方案
-
-    Returns:
-        包含预算分配和操作建议的字典
-    """
-    fund_amount = MONTHLY_BUDGET * FUND_RATIO
-    savings_amount = MONTHLY_BUDGET * SAVINGS_RATIO
+def calculate_monthly_plan(avg_pe_percentile: float | None = None) -> dict[str, Any]:
+    """Calculate the monthly investment split."""
+    budget = float(MONTHLY_BUDGET)
+    fund_amount = round(budget * FUND_RATIO, 2)
+    savings_amount = round(budget * SAVINGS_RATIO, 2)
 
     plan = {
-        "budget": MONTHLY_BUDGET,
+        "budget": budget,
         "fund_amount": fund_amount,
         "savings_amount": savings_amount,
     }
 
-    if avg_pe_percentile is not None and avg_pe_percentile < UNDERVALUED_THRESHOLD:
+    if avg_pe_percentile is None:
+        plan["action"] = "本月数据不足，按常规定投"
+        plan["detail"] = (
+            f"将 {fund_amount:.0f} 元投入指数基金，"
+            f"{savings_amount:.0f} 元保留为现金缓冲"
+        )
+    elif avg_pe_percentile < UNDERVALUED_THRESHOLD:
         plan["action"] = "本月低估，建议全额定投"
-        plan["detail"] = f"将 {fund_amount:.0f} 元投入指数基金，{savings_amount:.0f} 元存余额宝"
-    elif avg_pe_percentile is not None and avg_pe_percentile > OVERVALUED_THRESHOLD:
+        plan["detail"] = (
+            f"将 {fund_amount:.0f} 元投入指数基金，"
+            f"{savings_amount:.0f} 元继续放在余额宝"
+        )
+    elif avg_pe_percentile > OVERVALUED_THRESHOLD:
         plan["action"] = "本月高估，建议暂停定投"
-        plan["detail"] = f"将 {MONTHLY_BUDGET:.0f} 元全部转入余额宝，等待更好时机"
+        plan["detail"] = (
+            f"将 {budget:.0f} 元全部放入余额宝，等待更好的入场时机"
+        )
     else:
         plan["action"] = "本月估值合理，正常定投"
-        plan["detail"] = f"将 {fund_amount:.0f} 元投入指数基金，{savings_amount:.0f} 元存余额宝"
+        plan["detail"] = (
+            f"将 {fund_amount:.0f} 元投入指数基金，"
+            f"{savings_amount:.0f} 元留作应急现金"
+        )
 
     return plan
 
 
-def save_history(index_name: str, pe_percentile: float, pe: float, close: float):
-    """保存历史数据到 JSON 文件（去重 + 原子写入）"""
-    history = {}
-    if os.path.exists(HISTORY_FILE):
-        try:
-            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
-                history = json.load(f)
-        except (json.JSONDecodeError, IOError):
-            # 损坏时备份原文件，避免静默丢数据
-            backup = HISTORY_FILE + ".bak"
-            try:
-                os.replace(HISTORY_FILE, backup)
-                print(f"  ⚠ history.json 已损坏，已备份为 {backup}")
-            except OSError:
-                print("  ⚠ history.json 已损坏且无法备份")
-            history = {}
-
-    today = datetime.now().strftime("%Y-%m-%d")
-    if index_name not in history:
-        history[index_name] = []
-
-    # 去重：同一天同一指数只保留最新一条
-    history[index_name] = [
-        r for r in history[index_name] if r.get("date") != today
-    ]
-
-    history[index_name].append({
-        "date": today,
-        "pe": pe,
-        "pe_percentile": pe_percentile,
-        "close": close,
-    })
-
-    # 只保留最近 365 条记录
-    history[index_name] = history[index_name][-365:]
-
-    # 原子写入：先写临时文件，再替换，防止中途断电损坏
-    dir_name = os.path.dirname(HISTORY_FILE) or "."
-    fd, tmp_path = tempfile.mkstemp(dir=dir_name, suffix=".tmp")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump(history, f, ensure_ascii=False, indent=2)
-        os.replace(tmp_path, HISTORY_FILE)
-    except Exception:
-        # 写入失败时清理临时文件
-        try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
-        raise
+def save_history(
+    index_name: str,
+    pe_percentile: float,
+    pe: float,
+    close: float,
+    *,
+    history_file: str | None = None,
+) -> dict[str, list[dict[str, Any]]]:
+    """Compatibility wrapper around the history persistence layer."""
+    target = HISTORY_FILE if history_file is None else history_file
+    return _save_history(
+        index_name,
+        pe_percentile,
+        pe,
+        close,
+        history_file=target,
+    )

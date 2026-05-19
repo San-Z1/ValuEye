@@ -1,37 +1,52 @@
-"""数据抓取模块 - BaoStock 获取指数行情 + akshare 获取基金净值和估值"""
+"""Market data fetch helpers."""
 
-import baostock as bs
-import akshare as ak
+from __future__ import annotations
+
 from datetime import datetime, timedelta
+from typing import Any
+
+import akshare as ak
+import baostock as bs
+
+try:  # pragma: no cover - import shim for direct script execution
+    from .config import INDEX_LOOKBACK_DAYS
+except ImportError:  # pragma: no cover
+    from config import INDEX_LOOKBACK_DAYS
 
 
 def bs_login():
-    """BaoStock 登录（程序启动时调用一次）"""
-    lg = bs.login()
-    if lg.error_code != "0":
-        raise ConnectionError(f"BaoStock 登录失败: {lg.error_msg}")
-    return lg
+    """Log in to BaoStock once per run."""
+    result = bs.login()
+    if result.error_code != "0":
+        raise ConnectionError(f"BaoStock 登录失败: {result.error_msg}")
+    return result
 
 
 def bs_logout():
-    """BaoStock 登出（程序退出时调用一次）"""
+    """Log out of BaoStock if a session exists."""
     bs.logout()
 
 
-def get_index_data(index_code: str) -> dict:
-    """用 BaoStock 获取指数最新行情
+def _to_float(value: Any) -> float | None:
+    try:
+        if value in (None, ""):
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
-    Args:
-        index_code: BaoStock 格式，如 "sh.000300"
 
-    Returns:
-        {"close": 收盘价, "change_pct": 涨跌幅%, "date": 日期}
+def _pick_column(columns: list[str], candidates: tuple[str, ...]) -> str | None:
+    for candidate in candidates:
+        if candidate in columns:
+            return candidate
+    return None
 
-    注意：调用前需先调用 bs_login()
-    """
+
+def get_index_data(index_code: str) -> dict[str, Any] | None:
+    """Fetch the latest daily close for a market index."""
     today = datetime.now().strftime("%Y-%m-%d")
-    # 往前多取几天，确保非交易日也能拿到数据
-    start = (datetime.now() - timedelta(days=10)).strftime("%Y-%m-%d")
+    start = (datetime.now() - timedelta(days=INDEX_LOOKBACK_DAYS)).strftime("%Y-%m-%d")
 
     rs = bs.query_history_k_data_plus(
         index_code,
@@ -41,94 +56,93 @@ def get_index_data(index_code: str) -> dict:
         frequency="d",
         adjustflag="3",
     )
+    if rs.error_code != "0":
+        print(f"  [baostock] {index_code} 查询失败: {rs.error_msg}")
+        return None
 
-    rows = []
-    while rs.error_code == "0" and rs.next():
+    rows: list[list[str]] = []
+    while rs.next():
         rows.append(rs.get_row_data())
 
     if not rows:
         return None
 
-    # 取最后一个交易日
     latest = rows[-1]
-    date, close_str, preclose_str = latest[0], latest[1], latest[2]
-
-    if not close_str or not preclose_str:
+    if len(latest) < 3:
         return None
 
-    try:
-        close = float(close_str)
-        preclose = float(preclose_str)
-    except (ValueError, TypeError):
+    close = _to_float(latest[1])
+    preclose = _to_float(latest[2])
+    if close is None or preclose in (None, 0):
         return None
-    change_pct = ((close - preclose) / preclose) * 100 if preclose else 0
 
     return {
-        "close": close,
-        "change_pct": round(change_pct, 2),
-        "date": date,
+        "close": round(close, 4),
+        "change_pct": round(((close - preclose) / preclose) * 100, 2),
+        "date": latest[0],
     }
 
 
-def get_fund_nav(fund_code: str) -> dict:
-    """用 akshare 获取基金最新净值
-
-    Args:
-        fund_code: 基金代码，如 "000961"
-
-    Returns:
-        {"nav": 最新净值, "date": 日期, "nav_prev": 前一日净值}
-    """
+def get_fund_nav(fund_code: str) -> dict[str, Any] | None:
+    """Fetch the latest open-end fund NAV."""
     try:
         df = ak.fund_open_fund_info_em(symbol=fund_code, indicator="单位净值走势")
         if df is None or df.empty:
             return None
 
-        # 取最后两行
-        df = df.tail(2).reset_index(drop=True)
-        latest = df.iloc[-1]
+        nav_column = _pick_column(list(df.columns), ("单位净值", "净值"))
+        date_column = _pick_column(list(df.columns), ("净值日期", "日期"))
+        if nav_column is None or date_column is None:
+            return None
 
-        nav = float(latest["单位净值"])
-        date_str = str(latest["净值日期"])
+        latest = df.tail(2).reset_index(drop=True).iloc[-1]
+        nav = _to_float(latest[nav_column])
+        if nav is None:
+            return None
 
         nav_prev = None
         if len(df) >= 2:
-            nav_prev = float(df.iloc[-2]["单位净值"])
+            prev_row = df.tail(2).reset_index(drop=True).iloc[-2]
+            nav_prev = _to_float(prev_row[nav_column])
 
-        return {"nav": nav, "date": date_str, "nav_prev": nav_prev}
-    except Exception as e:
-        print(f"  [akshare] 获取基金 {fund_code} 净值失败: {e}")
+        return {
+            "nav": round(nav, 4),
+            "date": str(latest[date_column]),
+            "nav_prev": nav_prev,
+        }
+    except Exception as exc:
+        print(f"  [akshare] 基金 {fund_code} 净值获取失败: {exc}")
         return None
 
 
-def get_index_valuation(lg_name: str) -> dict:
-    """用 akshare 获取指数估值（PE 及历史百分位）
-
-    数据源：乐咕乐股 (legulegu) 通过 akshare 的 stock_index_pe_lg 接口
-    支持的指数：沪深300、中证500、上证50、中证1000 等
-
-    Args:
-        lg_name: 乐咕乐股指数名称，如 "沪深300"
-
-    Returns:
-        {"pe": 静态市盈率, "pe_percentile": 静态市盈率中位数(%)}
-    """
+def get_index_valuation(lg_name: str) -> dict[str, Any] | None:
+    """Fetch index valuation metrics from akshare."""
     try:
         df = ak.stock_index_pe_lg(symbol=lg_name)
         if df is None or df.empty:
             return None
 
+        pe_column = _pick_column(
+            list(df.columns),
+            ("静态市盈率", "市盈率", "PE"),
+        )
+        percentile_column = _pick_column(
+            list(df.columns),
+            ("静态市盈率中位数", "市盈率中位数", "市盈率百分位", "PE百分位"),
+        )
+        if pe_column is None or percentile_column is None:
+            return None
+
         latest = df.iloc[-1]
-        try:
-            pe = float(latest["静态市盈率"])
-            pe_percentile = float(latest["静态市盈率中位数"])
-        except (ValueError, TypeError):
+        pe = _to_float(latest[pe_column])
+        pe_percentile = _to_float(latest[percentile_column])
+        if pe is None or pe_percentile is None:
             return None
 
         return {
             "pe": round(pe, 2),
             "pe_percentile": round(pe_percentile, 1),
         }
-    except Exception as e:
-        print(f"  [akshare] 获取 {lg_name} 估值失败: {e}")
+    except Exception as exc:
+        print(f"  [akshare] {lg_name} 估值获取失败: {exc}")
         return None

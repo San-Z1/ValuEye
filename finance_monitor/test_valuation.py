@@ -1,20 +1,24 @@
-"""valuation.py 核心逻辑测试"""
+"""Tests for the valuation and history helpers."""
+
+from __future__ import annotations
 
 import json
 import os
 import tempfile
 
-import pytest
+try:  # pragma: no cover - support both root and package test execution
+    from finance_monitor import valuation as valuation_module
+    from finance_monitor.insights import build_history_rows, sparkline
+except ModuleNotFoundError:  # pragma: no cover
+    import valuation as valuation_module
+    from insights import build_history_rows, sparkline
 
-# 测试前设置 config，避免依赖真实配置
-os.environ.setdefault("_TEST_MODE", "1")
-
-from valuation import judge_valuation, calculate_monthly_plan, save_history
+judge_valuation = valuation_module.judge_valuation
+calculate_monthly_plan = valuation_module.calculate_monthly_plan
+save_history = valuation_module.save_history
 
 
 class TestJudgeValuation:
-    """judge_valuation 边界条件测试"""
-
     def test_none_returns_unknown(self):
         result = judge_valuation(None)
         assert result["level"] == "未知"
@@ -26,7 +30,6 @@ class TestJudgeValuation:
         assert result["signal"] == "买入"
 
     def test_exactly_at_undervalued_boundary(self):
-        # 30 不算低估（< 30 才算）
         result = judge_valuation(30.0)
         assert result["level"] == "合理"
 
@@ -36,7 +39,6 @@ class TestJudgeValuation:
         assert result["signal"] == "持有"
 
     def test_exactly_at_overvalued_boundary(self):
-        # 70 属于高估（>= 70）
         result = judge_valuation(70.0)
         assert result["level"] == "高估"
 
@@ -55,12 +57,10 @@ class TestJudgeValuation:
 
 
 class TestCalculateMonthlyPlan:
-    """calculate_monthly_plan 不同场景测试"""
-
     def test_none_input(self):
         plan = calculate_monthly_plan(None)
         assert plan["budget"] == 200.0
-        assert "正常定投" in plan["action"]
+        assert "定投" in plan["action"]
 
     def test_low_valuation(self):
         plan = calculate_monthly_plan(20.0)
@@ -76,29 +76,26 @@ class TestCalculateMonthlyPlan:
 
     def test_budget_split(self):
         plan = calculate_monthly_plan(50.0)
-        assert plan["fund_amount"] == 160.0  # 200 * 0.8
-        assert plan["savings_amount"] == 40.0  # 200 * 0.2
+        assert plan["fund_amount"] == 160.0
+        assert plan["savings_amount"] == 40.0
 
 
 class TestSaveHistory:
-    """save_history 去重与原子写入测试"""
-
     def _make_tmp_history(self):
-        """创建临时 history 文件，返回路径"""
         fd, path = tempfile.mkstemp(suffix=".json")
         os.close(fd)
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump({}, f)
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump({}, handle)
         return path
 
     def test_basic_save(self, monkeypatch):
         path = self._make_tmp_history()
         try:
-            monkeypatch.setattr("valuation.HISTORY_FILE", path)
+            monkeypatch.setattr(valuation_module, "HISTORY_FILE", path)
             save_history("沪深300", 22.0, 14.17, 4914.6)
 
-            with open(path, encoding="utf-8") as f:
-                data = json.load(f)
+            with open(path, encoding="utf-8") as handle:
+                data = json.load(handle)
             assert len(data["沪深300"]) == 1
             assert data["沪深300"][0]["pe"] == 14.17
         finally:
@@ -107,13 +104,12 @@ class TestSaveHistory:
     def test_dedup_same_day(self, monkeypatch):
         path = self._make_tmp_history()
         try:
-            monkeypatch.setattr("valuation.HISTORY_FILE", path)
+            monkeypatch.setattr(valuation_module, "HISTORY_FILE", path)
             save_history("沪深300", 22.0, 14.17, 4914.6)
             save_history("沪深300", 23.0, 14.20, 4920.0)
 
-            with open(path, encoding="utf-8") as f:
-                data = json.load(f)
-            # 同一天只保留最后一条
+            with open(path, encoding="utf-8") as handle:
+                data = json.load(handle)
             assert len(data["沪深300"]) == 1
             assert data["沪深300"][0]["pe"] == 14.20
         finally:
@@ -122,12 +118,12 @@ class TestSaveHistory:
     def test_different_indices_independent(self, monkeypatch):
         path = self._make_tmp_history()
         try:
-            monkeypatch.setattr("valuation.HISTORY_FILE", path)
+            monkeypatch.setattr(valuation_module, "HISTORY_FILE", path)
             save_history("沪深300", 22.0, 14.17, 4914.6)
             save_history("中证500", 33.2, 32.42, 8670.16)
 
-            with open(path, encoding="utf-8") as f:
-                data = json.load(f)
+            with open(path, encoding="utf-8") as handle:
+                data = json.load(handle)
             assert len(data["沪深300"]) == 1
             assert len(data["中证500"]) == 1
         finally:
@@ -136,20 +132,34 @@ class TestSaveHistory:
     def test_corrupted_file_creates_backup(self, monkeypatch):
         path = self._make_tmp_history()
         try:
-            # 写入损坏数据
-            with open(path, "w") as f:
-                f.write("{invalid json")
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write("{invalid json")
 
-            monkeypatch.setattr("valuation.HISTORY_FILE", path)
+            monkeypatch.setattr(valuation_module, "HISTORY_FILE", path)
             save_history("沪深300", 22.0, 14.17, 4914.6)
 
-            # 应该创建了备份
             assert os.path.exists(path + ".bak")
-            # 新数据正常写入
-            with open(path, encoding="utf-8") as f:
-                data = json.load(f)
+            with open(path, encoding="utf-8") as handle:
+                data = json.load(handle)
             assert len(data["沪深300"]) == 1
         finally:
             os.unlink(path)
             if os.path.exists(path + ".bak"):
                 os.unlink(path + ".bak")
+
+
+class TestInsights:
+    def test_sparkline_constant_series(self):
+        assert sparkline([1, 1, 1]) == "▅▅▅"
+
+    def test_build_history_rows(self):
+        history = {
+            "沪深300": [
+                {"date": "2026-05-13", "close": 4800, "pe_percentile": 24.0},
+                {"date": "2026-05-14", "close": 4914.5971, "pe_percentile": 22.0},
+            ]
+        }
+        rows = build_history_rows(history, ["沪深300"], window=7)
+        assert rows[0]["name"] == "沪深300"
+        assert rows[0]["trend"] == "走强"
+        assert rows[0]["close_change_pct"] > 0

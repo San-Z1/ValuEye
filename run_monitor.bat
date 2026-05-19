@@ -9,8 +9,8 @@ echo 开始时间: %date% %time%
 REM 切换到脚本所在目录
 cd /d "%~dp0"
 
-REM 运行 v2 主程序
-python finance_monitor\main.py
+REM 运行主程序
+python -m finance_monitor.main
 if errorlevel 1 (
     echo.
     echo 运行失败，请检查：

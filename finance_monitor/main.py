@@ -1,43 +1,75 @@
 #!/usr/bin/env python3
-"""ValuEye - 大学生理财监控"""
+"""PennyPilot main entrypoint."""
 
-import sys
+from __future__ import annotations
+
 import os
+import sys
+import traceback
+from typing import Any
 
-# Windows 终端中文编码修复
-if sys.platform == "win32":
+if sys.platform == "win32":  # pragma: no cover - convenience for console encoding
     try:
         sys.stdout.reconfigure(encoding="utf-8")
         sys.stderr.reconfigure(encoding="utf-8")
     except Exception:
         os.system("chcp 65001 >nul 2>&1")
 
-# 将当前目录加入 path，确保能找到同级模块
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:  # pragma: no cover - import shim for direct script execution
+    from .config import FUNDS, INDICES, TREND_WINDOW
+    from .data_fetcher import (
+        bs_login,
+        bs_logout,
+        get_fund_nav,
+        get_index_data,
+        get_index_valuation,
+    )
+    from .display import (
+        console,
+        print_footer,
+        print_fund_table,
+        print_header,
+        print_history_table,
+        print_index_table,
+        print_investment_plan,
+        print_overall_advice,
+        print_valuation_table,
+    )
+    from .history import load_history
+    from .insights import build_history_rows
+    from .valuation import calculate_monthly_plan, judge_valuation, save_history
+except ImportError:  # pragma: no cover
+    from config import FUNDS, INDICES, TREND_WINDOW
+    from data_fetcher import (
+        bs_login,
+        bs_logout,
+        get_fund_nav,
+        get_index_data,
+        get_index_valuation,
+    )
+    from display import (
+        console,
+        print_footer,
+        print_fund_table,
+        print_header,
+        print_history_table,
+        print_index_table,
+        print_investment_plan,
+        print_overall_advice,
+        print_valuation_table,
+    )
+    from history import load_history
+    from insights import build_history_rows
+    from valuation import calculate_monthly_plan, judge_valuation, save_history
 
-from config import INDICES, FUNDS
-from data_fetcher import bs_login, bs_logout, get_index_data, get_fund_nav, get_index_valuation
-from valuation import judge_valuation, calculate_monthly_plan, save_history
-from display import (
-    console,
-    print_header,
-    print_index_table,
-    print_valuation_table,
-    print_fund_table,
-    print_investment_plan,
-    print_overall_advice,
-    print_footer,
-)
 
-
-def fetch_all_index_data() -> list:
-    """抓取所有指数行情"""
-    results = []
-    for idx in INDICES:
-        console.print(f"  抓取 [cyan]{idx['name']}[/] 行情...", end=" ")
-        data = get_index_data(idx["code"])
+def _fetch_all_index_data() -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
+    for item in INDICES:
+        console.print(f"  获取 [cyan]{item['name']}[/] 行情...", end=" ")
+        data = get_index_data(item["code"])
         if data:
-            data["name"] = idx["name"]
+            data["name"] = item["name"]
             results.append(data)
             console.print("[green]OK[/]")
         else:
@@ -45,31 +77,29 @@ def fetch_all_index_data() -> list:
     return results
 
 
-def fetch_all_valuations() -> list:
-    """抓取所有指数估值"""
-    results = []
-    for idx in INDICES:
-        console.print(f"  抓取 [cyan]{idx['name']}[/] 估值...", end=" ")
-        val = get_index_valuation(idx["lg_name"])
-        if val:
-            val["name"] = idx["name"]
-            val.update(judge_valuation(val["pe_percentile"]))
-            results.append(val)
+def _fetch_all_valuations() -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
+    for item in INDICES:
+        console.print(f"  获取 [cyan]{item['name']}[/] 估值...", end=" ")
+        valuation = get_index_valuation(item["lg_name"])
+        if valuation:
+            valuation["name"] = item["name"]
+            valuation.update(judge_valuation(valuation["pe_percentile"]))
+            results.append(valuation)
             console.print("[green]OK[/]")
         else:
-            console.print("[yellow]无数据（部分指数可能不支持）[/]")
+            console.print("[yellow]无数据[/]")
     return results
 
 
-def fetch_all_fund_nav() -> list:
-    """抓取所有基金净值"""
-    results = []
-    for fund in FUNDS:
-        console.print(f"  抓取 [cyan]{fund['name']}[/] 净值...", end=" ")
-        data = get_fund_nav(fund["code"])
+def _fetch_all_fund_nav() -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
+    for item in FUNDS:
+        console.print(f"  获取 [cyan]{item['name']}[/] 净值...", end=" ")
+        data = get_fund_nav(item["code"])
         if data:
-            data["name"] = fund["name"]
-            data["code"] = fund["code"]
+            data["name"] = item["name"]
+            data["code"] = item["code"]
             results.append(data)
             console.print("[green]OK[/]")
         else:
@@ -77,92 +107,102 @@ def fetch_all_fund_nav() -> list:
     return results
 
 
-def main():
-    print_header()
+def _summarize_market(valuations: list[dict[str, Any]]) -> tuple[float | None, str, str]:
+    valid = [item for item in valuations if item.get("pe_percentile") is not None]
+    if not valid:
+        return None, "持有", "数据不足，建议按常规定投"
 
-    # 登录 BaoStock（全局一次）
-    bs_login()
-
-    try:
-        _run()
-    finally:
-        bs_logout()
+    avg_pe_percentile = sum(float(item["pe_percentile"]) for item in valid) / len(valid)
+    overall = judge_valuation(avg_pe_percentile)
+    return avg_pe_percentile, overall["signal"], overall["advice"]
 
 
-def _run():
-    # 1. 抓取指数行情
+def _save_snapshot(indices_data: list[dict[str, Any]], valuations: list[dict[str, Any]]):
+    if not indices_data or not valuations:
+        return
+
+    console.print("[bold]5. 保存历史数据[/]")
+    valuation_map = {item["name"]: item for item in valuations}
+    for index_item in indices_data:
+        valuation_item = valuation_map.get(index_item["name"])
+        if not valuation_item:
+            continue
+        save_history(
+            index_item["name"],
+            valuation_item["pe_percentile"],
+            valuation_item["pe"],
+            index_item["close"],
+        )
+        console.print(f"  已保存 [cyan]{index_item['name']}[/] 的最新数据")
+    console.print()
+
+
+def _render_history_trend():
+    history = load_history()
+    history_rows = build_history_rows(
+        history,
+        [item["name"] for item in INDICES],
+        window=TREND_WINDOW,
+    )
+    print_history_table(history_rows)
+
+
+def _run() -> None:
     console.print("[bold]1. 获取指数行情[/]")
-    indices_data = fetch_all_index_data()
+    indices_data = _fetch_all_index_data()
     if indices_data:
         print_index_table(indices_data)
     else:
-        console.print("[red]所有指数数据获取失败，请检查网络连接[/]\n")
+        console.print("[red]指数行情暂时不可用，请检查网络或 BaoStock 状态。[/]\n")
 
-    # 2. 抓取估值数据
     console.print("[bold]2. 获取估值数据[/]")
-    valuations = fetch_all_valuations()
+    valuations = _fetch_all_valuations()
     if valuations:
         print_valuation_table(valuations)
     else:
-        console.print("[yellow]估值数据获取失败，将使用默认建议[/]\n")
+        console.print("[yellow]估值数据暂时不可用，将按保守方案继续。[/]\n")
 
-    # 3. 抓取基金净值
     console.print("[bold]3. 获取基金净值[/]")
-    funds_data = fetch_all_fund_nav()
+    funds_data = _fetch_all_fund_nav()
     if funds_data:
         print_fund_table(funds_data)
     else:
-        console.print("[yellow]基金净值获取失败[/]\n")
+        console.print("[yellow]基金净值暂时不可用。[/]\n")
 
-    # 4. 综合分析
     console.print("[bold]4. 综合分析[/]")
-    avg_pe_percentile = None
-    overall_signal = "持有"
-    overall_advice_text = "数据不足，建议按计划定投"
-
-    if valuations:
-        valid = [v for v in valuations if v.get("pe_percentile") is not None]
-        if valid:
-            avg_pe_percentile = sum(v["pe_percentile"] for v in valid) / len(valid)
-            overall = judge_valuation(avg_pe_percentile)
-            overall_signal = overall["signal"]
-            overall_advice_text = overall["advice"]
-
-    # 投资计划
+    avg_pe_percentile, overall_signal, overall_advice = _summarize_market(valuations)
     plan = calculate_monthly_plan(avg_pe_percentile)
     print_investment_plan(plan)
+    print_overall_advice(avg_pe_percentile, overall_signal, overall_advice)
 
-    # 综合建议
-    if avg_pe_percentile is not None:
-        print_overall_advice(avg_pe_percentile, overall_signal, overall_advice_text)
-
-    # 5. 保存历史
-    if indices_data and valuations:
-        console.print("[bold]5. 保存历史数据[/]")
-        val_map = {v["name"]: v for v in valuations}
-        for idx in indices_data:
-            if idx["name"] in val_map:
-                v = val_map[idx["name"]]
-                save_history(
-                    idx["name"],
-                    v["pe_percentile"],
-                    v["pe"],
-                    idx["close"],
-                )
-                console.print(f"  已保存 [cyan]{idx['name']}[/] 数据")
-        console.print()
-
+    _save_snapshot(indices_data, valuations)
+    _render_history_trend()
     print_footer()
 
 
-if __name__ == "__main__":
+def main() -> int:
+    print_header()
+    logged_in = False
     try:
-        main()
+        try:
+            bs_login()
+            logged_in = True
+        except Exception as exc:
+            console.print(f"[yellow]BaoStock 登录失败，继续使用可用数据: {exc}[/]")
+
+        _run()
+        return 0
     except KeyboardInterrupt:
         console.print("\n[yellow]用户中断[/]")
-        sys.exit(0)
-    except Exception as e:
-        console.print(f"\n[red]程序出错: {e}[/]")
-        import traceback
+        return 130
+    except Exception as exc:
+        console.print(f"\n[red]程序出错: {exc}[/]")
         traceback.print_exc()
-        sys.exit(1)
+        return 1
+    finally:
+        if logged_in:
+            bs_logout()
+
+
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())
