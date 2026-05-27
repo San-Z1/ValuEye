@@ -17,7 +17,7 @@ if sys.platform == "win32":  # pragma: no cover - convenience for console encodi
 
 try:  # pragma: no cover - import shim for direct script execution
     from .catalog import build_student_allocation, learning_prompts, product_catalog
-    from .config import FUNDS, INDICES, STUDENT_PROFILE, TREND_WINDOW
+    from .config import FUNDS, INDICES, OVERVALUED_THRESHOLD, STUDENT_PROFILE, TREND_WINDOW, UNDERVALUED_THRESHOLD
     from .data_fetcher import (
         bs_login,
         bs_logout,
@@ -42,10 +42,11 @@ try:  # pragma: no cover - import shim for direct script execution
     )
     from .history import load_history
     from .insights import build_history_rows
+    from .json_export import export_to_json
     from .valuation import calculate_monthly_plan, judge_valuation, save_history
 except ImportError:  # pragma: no cover
     from catalog import build_student_allocation, learning_prompts, product_catalog
-    from config import FUNDS, INDICES, STUDENT_PROFILE, TREND_WINDOW
+    from config import FUNDS, INDICES, OVERVALUED_THRESHOLD, STUDENT_PROFILE, TREND_WINDOW, UNDERVALUED_THRESHOLD
     from data_fetcher import (
         bs_login,
         bs_logout,
@@ -70,6 +71,7 @@ except ImportError:  # pragma: no cover
     )
     from history import load_history
     from insights import build_history_rows
+    from json_export import export_to_json
     from valuation import calculate_monthly_plan, judge_valuation, save_history
 
 
@@ -123,14 +125,20 @@ def _fetch_all_fund_nav() -> list[dict[str, Any]]:
     return results
 
 
-def _summarize_market(valuations: list[dict[str, Any]]) -> tuple[float | None, str, str]:
+def _summarize_market(valuations: list[dict[str, Any]]) -> tuple[float | None, str, str, str]:
     valid = [item for item in valuations if item.get("pe_percentile") is not None]
     if not valid:
-        return None, "持有", "数据不足，建议按常规定投"
+        return None, "持有", "数据不足，建议按常规定投", "稳健型"
 
     avg_pe_percentile = sum(float(item["pe_percentile"]) for item in valid) / len(valid)
     overall = judge_valuation(avg_pe_percentile)
-    return avg_pe_percentile, overall["signal"], overall["advice"]
+    if avg_pe_percentile < UNDERVALUED_THRESHOLD:
+        risk_label = "成长型"
+    elif avg_pe_percentile > OVERVALUED_THRESHOLD:
+        risk_label = "保守型"
+    else:
+        risk_label = "稳健型"
+    return avg_pe_percentile, overall["signal"], overall["advice"], risk_label
 
 
 def _save_snapshot(indices_data: list[dict[str, Any]], valuations: list[dict[str, Any]]):
@@ -198,7 +206,7 @@ def _run() -> None:
         console.print("[yellow]基金净值暂时不可用。[/]\n")
 
     console.print("[bold]4. 综合分析[/]")
-    avg_pe_percentile, overall_signal, overall_advice = _summarize_market(valuations)
+    avg_pe_percentile, overall_signal, overall_advice, risk_profile = _summarize_market(valuations)
     plan = calculate_monthly_plan(avg_pe_percentile)
     print_investment_plan(plan)
     print_overall_advice(avg_pe_percentile, overall_signal, overall_advice)
@@ -207,6 +215,16 @@ def _run() -> None:
     _render_history_trend()
     console.print("[bold]6. 理财思维训练[/]")
     _render_learning_layer()
+    console.print("[bold]7. 生成前端数据[/]")
+    try:
+        json_path = export_to_json(
+            indices_data, valuations, funds_data,
+            risk_profile, overall_signal, overall_advice,
+            avg_pe_percentile,
+        )
+        console.print(f"  已生成 [cyan]{json_path}[/]\n")
+    except Exception as exc:
+        console.print(f"  [yellow]JSON 导出失败: {exc}[/]\n")
     print_footer()
 
 
