@@ -146,3 +146,36 @@ def get_index_valuation(lg_name: str) -> dict[str, Any] | None:
     except Exception as exc:
         print(f"  [akshare] {lg_name} 估值获取失败: {exc}")
         return None
+
+
+def get_hk_index_data() -> dict[str, Any] | None:
+    """Fetch the latest Hang Seng Tech Index via akshare."""
+    try:
+        df = ak.stock_hk_index_daily_em(symbol="HSTECH")
+        if df is None or df.empty:
+            return None
+
+        close_col = _pick_column(list(df.columns), ("收盘", "close", "收盘价"))
+        date_col = _pick_column(list(df.columns), ("日期", "date", "时间"))
+        if close_col is None or date_col is None:
+            return None
+
+        latest = df.iloc[-1]
+        close = _to_float(latest[close_col])
+        if close is None:
+            return None
+
+        change_pct = None
+        if len(df) >= 2:
+            prev_close = _to_float(df.iloc[-2][close_col])
+            if prev_close and prev_close != 0:
+                change_pct = round(((close - prev_close) / prev_close) * 100, 2)
+
+        return {
+            "close": round(close, 4),
+            "change_pct": change_pct,
+            "date": str(latest[date_col]),
+        }
+    except Exception as exc:
+        print(f"  [akshare] 恒生科技指数获取失败: {exc}")
+        return None

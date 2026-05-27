@@ -16,11 +16,13 @@ if sys.platform == "win32":  # pragma: no cover - convenience for console encodi
         os.system("chcp 65001 >nul 2>&1")
 
 try:  # pragma: no cover - import shim for direct script execution
-    from .config import FUNDS, INDICES, TREND_WINDOW
+    from .catalog import build_student_allocation, learning_prompts, product_catalog
+    from .config import FUNDS, INDICES, STUDENT_PROFILE, TREND_WINDOW
     from .data_fetcher import (
         bs_login,
         bs_logout,
         get_fund_nav,
+        get_hk_index_data,
         get_index_data,
         get_index_valuation,
     )
@@ -32,18 +34,23 @@ try:  # pragma: no cover - import shim for direct script execution
         print_history_table,
         print_index_table,
         print_investment_plan,
+        print_learning_prompts,
         print_overall_advice,
+        print_product_catalog,
+        print_student_allocation,
         print_valuation_table,
     )
     from .history import load_history
     from .insights import build_history_rows
     from .valuation import calculate_monthly_plan, judge_valuation, save_history
 except ImportError:  # pragma: no cover
-    from config import FUNDS, INDICES, TREND_WINDOW
+    from catalog import build_student_allocation, learning_prompts, product_catalog
+    from config import FUNDS, INDICES, STUDENT_PROFILE, TREND_WINDOW
     from data_fetcher import (
         bs_login,
         bs_logout,
         get_fund_nav,
+        get_hk_index_data,
         get_index_data,
         get_index_valuation,
     )
@@ -55,7 +62,10 @@ except ImportError:  # pragma: no cover
         print_history_table,
         print_index_table,
         print_investment_plan,
+        print_learning_prompts,
         print_overall_advice,
+        print_product_catalog,
+        print_student_allocation,
         print_valuation_table,
     )
     from history import load_history
@@ -67,7 +77,10 @@ def _fetch_all_index_data() -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
     for item in INDICES:
         console.print(f"  获取 [cyan]{item['name']}[/] 行情...", end=" ")
-        data = get_index_data(item["code"])
+        if item["code"].startswith("hk:"):
+            data = get_hk_index_data()
+        else:
+            data = get_index_data(item["code"])
         if data:
             data["name"] = item["name"]
             results.append(data)
@@ -80,6 +93,9 @@ def _fetch_all_index_data() -> list[dict[str, Any]]:
 def _fetch_all_valuations() -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
     for item in INDICES:
+        if item["lg_name"] is None:
+            console.print(f"  [cyan]{item['name']}[/] 估值... [dim]跳过（无PE数据）[/]")
+            continue
         console.print(f"  获取 [cyan]{item['name']}[/] 估值...", end=" ")
         valuation = get_index_valuation(item["lg_name"])
         if valuation:
@@ -147,6 +163,18 @@ def _render_history_trend():
     print_history_table(history_rows)
 
 
+def _render_learning_layer():
+    allocation = build_student_allocation(
+        STUDENT_PROFILE["monthly_income"],
+        STUDENT_PROFILE["monthly_expense"],
+        STUDENT_PROFILE["risk_score"],
+        reserve_months=int(STUDENT_PROFILE["cash_reserve_months"]),
+    )
+    print_student_allocation(allocation)
+    print_product_catalog(product_catalog())
+    print_learning_prompts(learning_prompts())
+
+
 def _run() -> None:
     console.print("[bold]1. 获取指数行情[/]")
     indices_data = _fetch_all_index_data()
@@ -177,6 +205,8 @@ def _run() -> None:
 
     _save_snapshot(indices_data, valuations)
     _render_history_trend()
+    console.print("[bold]6. 理财思维训练[/]")
+    _render_learning_layer()
     print_footer()
 
 
