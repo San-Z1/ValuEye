@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PennyPilot 学生理财工作台</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <nav class="app-nav">
+    <a class="nav-brand" href="#">PennyPilot</a>
+    <ul class="nav-links">
+      <li><a href="#market" class="active">市场概览</a></li>
+      <li><a href="#valuation">估值分析</a></li>
+      <li><a href="#dca">定投推荐</a></li>
+      <li><a href="#simulator">定投模拟</a></li>
+      <li><a href="#learning">理财学习</a></li>
+      <li><a href="#checklist">检查清单</a></li>
+    </ul>
+    <button class="theme-toggle" id="themeToggle" aria-label="切换主题">🌙 深色</button>
+  </nav>
+
+  <main class="dashboard">
+
+    <div class="data-notice" id="dataNotice" style="display:none;">
+      显示的是默认示例数据。运行 <code>python -m finance_monitor.main</code> 获取最新市场数据。
+    </div>
+
+    <!-- Section 1: 市场概览 -->
+    <section class="section" id="market">
+      <div class="section-header">
+        <span class="section-label">01 · Market</span>
+        <h2 class="section-title">市场概览</h2>
+      </div>
+      <div class="index-grid" id="indexGrid"></div>
+    </section>
+
+    <!-- Section 2: 估值分析 -->
+    <section class="section" id="valuation">
+      <div class="section-header">
+        <span class="section-label">02 · Valuation</span>
+        <h2 class="section-title">估值分析</h2>
+      </div>
+      <div class="valuation-grid" id="valuationGrid"></div>
+    </section>
+
+    <!-- Section 3: 定投推荐 -->
+    <section class="section" id="dca">
+      <div class="section-header">
+        <span class="section-label">03 · DCA</span>
+        <h2 class="section-title">定投推荐组合</h2>
+      </div>
+      <div class="dca-grid">
+        <div class="card" id="allocCard"></div>
+        <div class="card" id="fundCard"></div>
+      </div>
+    </section>
+
+    <!-- Section 4: 定投模拟器 -->
+    <section class="section" id="simulator">
+      <div class="section-header">
+        <span class="section-label">04 · Simulator</span>
+        <h2 class="section-title">定投收益模拟器</h2>
+      </div>
+      <div class="simulator-grid">
+        <div class="card">
+          <div class="sim-input-group">
+            <label for="simMonthly">每月投入 (元)</label>
+            <input type="number" id="simMonthly" min="10" step="10" value="200">
+          </div>
+          <div class="sim-input-group">
+            <label for="simYears">定投年数</label>
+            <input type="number" id="simYears" min="1" max="30" step="1" value="3">
+          </div>
+          <div class="sim-input-group">
+            <label for="simRate">预期年化收益</label>
+            <input type="number" id="simRate" min="0" max="20" step="0.5" value="7.5">
+          </div>
+          <div class="sim-result" id="simResult"></div>
+        </div>
+        <div class="card sim-chart-container">
+          <svg id="simChart" viewBox="0 0 500 220" preserveAspectRatio="xMidYMid meet"></svg>
+          <p class="sim-disclaimer">假设固定年化收益，实际收益受市场波动影响，仅供参考</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 5 & 6: 学习 + 清单 -->
+    <div class="bottom-grid">
+      <section class="section" id="learning">
+        <div class="section-header">
+          <span class="section-label">05 · Learning</span>
+          <h2 class="section-title">理财思维训练</h2>
+        </div>
+        <div class="learn-grid" id="learnGrid"></div>
+      </section>
+
+      <section class="section" id="checklist">
+        <div class="section-header">
+          <span class="section-label">06 · Checklist</span>
+          <h2 class="section-title">投资前检查清单</h2>
+        </div>
+        <div class="card">
+          <div class="checklist">
+            <label><input type="checkbox"> 这笔钱 3 个月内不会用到</label>
+            <label><input type="checkbox"> 我知道产品的风险等级和赎回时间</label>
+            <label><input type="checkbox"> 下跌 20% 不会影响生活费</label>
+            <label><input type="checkbox"> 我已经写下买入理由和退出条件</label>
+            <label><input type="checkbox"> 我了解定投需要坚持 1 年以上</label>
+          </div>
+        </div>
+      </section>
+    </div>
+
+  </main>
+
+  <footer class="app-footer">
+    投资有风险 · 本工具用于学习和预算演练 · 不构成投资建议
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
