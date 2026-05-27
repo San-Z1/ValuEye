@@ -7,11 +7,19 @@ import os
 import tempfile
 
 try:  # pragma: no cover - support both root and package test execution
+    from finance_monitor.catalog import (
+        build_student_allocation,
+        classify_risk_score,
+        product_catalog,
+    )
     from finance_monitor import valuation as valuation_module
     from finance_monitor.insights import build_history_rows, sparkline
+    from finance_monitor.json_export import export_to_json, DATA_FILE
 except ModuleNotFoundError:  # pragma: no cover
+    from catalog import build_student_allocation, classify_risk_score, product_catalog
     import valuation as valuation_module
     from insights import build_history_rows, sparkline
+    from json_export import export_to_json, DATA_FILE
 
 judge_valuation = valuation_module.judge_valuation
 calculate_monthly_plan = valuation_module.calculate_monthly_plan
@@ -163,3 +171,62 @@ class TestInsights:
         assert rows[0]["name"] == "沪深300"
         assert rows[0]["trend"] == "走强"
         assert rows[0]["close_change_pct"] > 0
+
+
+class TestCatalog:
+    def test_risk_score_classification(self):
+        assert classify_risk_score(20)["profile"] == "保守型"
+        assert classify_risk_score(45)["profile"] == "稳健型"
+        assert classify_risk_score(80)["profile"] == "成长型"
+
+    def test_student_allocation_uses_surplus(self):
+        plan = build_student_allocation(1200, 900, 45)
+        assert plan["monthly_surplus"] == 300
+        assert sum(item["amount"] for item in plan["allocations"]) == 300
+        assert "不借钱投资" in plan["guardrail"]
+
+    def test_product_catalog_has_risk_labels(self):
+        products = product_catalog()
+        assert len(products) >= 6
+        assert all("risk_label" in item for item in products)
+
+
+class TestJsonExport:
+    def _make_sample_data(self):
+        indices = [
+            {"name": "沪深300", "close": 3914.6, "change_pct": 1.23, "date": "2026-05-23"},
+        ]
+        valuations = [
+            {"name": "沪深300", "pe": 14.17, "pe_percentile": 22.0, "level": "低估", "signal": "买入"},
+        ]
+        funds = [
+            {"name": "天弘沪深300ETF联接A", "code": "000961", "nav": 1.7387, "nav_prev": 1.7174, "date": "2026-05-23"},
+        ]
+        return indices, valuations, funds
+
+    def test_export_creates_json(self, tmp_path, monkeypatch):
+        indices, valuations, funds = self._make_sample_data()
+        monkeypatch.setattr("finance_monitor.json_export.DATA_FILE", tmp_path / "data.json")
+        path = export_to_json(indices, valuations, funds, "稳健型", "买入", "建议定投", 24.4)
+        assert path.exists()
+
+        import json
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        assert len(data["indices"]) == 1
+        assert len(data["funds"]) == 1
+        assert data["recommendation"]["risk_profile"] == "稳健型"
+        assert data["market_summary"]["avg_pe_percentile"] == 24.4
+
+    def test_export_indices_have_valuation_fields(self, tmp_path, monkeypatch):
+        indices, valuations, funds = self._make_sample_data()
+        monkeypatch.setattr("finance_monitor.json_export.DATA_FILE", tmp_path / "data.json")
+        path = export_to_json(indices, valuations, funds, "稳健型", "买入", "建议定投", 24.4)
+
+        import json
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        idx = data["indices"][0]
+        assert idx["pe"] == 14.17
+        assert idx["pe_percentile"] == 22.0
+        assert idx["level"] == "低估"
