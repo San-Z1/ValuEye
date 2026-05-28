@@ -5,3 +5,10 @@ __pycache__/
 run.log
 history.json
 .claude/
+.git-index-alt*
+.git-objects-alt*/
+task_plan.md
+findings.md
+progress.md
+.superpowers/
+web/data.json

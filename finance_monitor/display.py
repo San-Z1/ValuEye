@@ -118,6 +118,75 @@ def print_fund_table(funds_data: list[dict[str, Any]]):
     console.print()
 
 
+def print_product_catalog(products: list[dict[str, Any]]):
+    table = Table(title="学生理财选项地图", show_header=True, header_style="bold cyan")
+    table.add_column("产品", style="bold", min_width=18)
+    table.add_column("定位", justify="center")
+    table.add_column("风险", justify="center")
+    table.add_column("流动性", justify="center")
+    table.add_column("适合期限", justify="center")
+    table.add_column("使用场景", min_width=20)
+
+    for item in products:
+        risk = int(item.get("risk", 3))
+        style = "green" if risk <= 2 else "yellow" if risk <= 4 else "red"
+        table.add_row(
+            str(item.get("name", "-")),
+            str(item.get("category", "-")),
+            f"[{style}]{item.get('risk_label', '-')}[/]",
+            str(item.get("liquidity", "-")),
+            str(item.get("horizon", "-")),
+            str(item.get("role", "-")),
+        )
+
+    console.print(table)
+    console.print()
+
+
+def print_student_allocation(plan: dict[str, Any]):
+    profile = plan.get("profile", {})
+    table = Table(title="学生月度资金分层", show_header=True, header_style="bold cyan")
+    table.add_column("资金桶", style="bold", min_width=10)
+    table.add_column("比例", justify="right")
+    table.add_column("金额", justify="right")
+    table.add_column("可选工具", min_width=20)
+    table.add_column("理由", min_width=20)
+
+    for item in plan.get("allocations", []):
+        table.add_row(
+            str(item.get("bucket", "-")),
+            f"{float(item.get('ratio', 0.0)):.0%}",
+            f"{float(item.get('amount', 0.0)):.2f} 元",
+            str(item.get("products", "-")),
+            str(item.get("why", "-")),
+        )
+
+    console.print(
+        Panel(
+            (
+                f"[bold]{profile.get('profile', '未知')}[/]  "
+                f"{profile.get('summary', '')}\n"
+                f"月结余: [bold cyan]{plan.get('monthly_surplus', 0):.2f} 元[/]  "
+                f"备用金目标: [bold cyan]{plan.get('emergency_target', 0):.2f} 元[/]\n"
+                f"[dim]{plan.get('guardrail', '')}[/]"
+            ),
+            title="风险画像",
+            border_style="cyan",
+        )
+    )
+    console.print(table)
+    console.print()
+
+
+def print_learning_prompts(prompts: list[dict[str, str]]):
+    text = Text()
+    for index, item in enumerate(prompts, start=1):
+        text.append(f"{index}. {item['title']}: ", style="bold cyan")
+        text.append(f"{item['prompt']}\n")
+    console.print(Panel(text, title="理财思维训练", border_style="cyan"))
+    console.print()
+
+
 def print_history_table(history_rows: list[dict[str, Any]]):
     if not history_rows:
         return
