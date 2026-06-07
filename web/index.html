@@ -18,7 +18,7 @@
       <li><a href="#learning">理财学习</a></li>
       <li><a href="#checklist">检查清单</a></li>
     </ul>
-    <button class="theme-toggle" id="themeToggle" aria-label="切换主题">🌙 深色</button>
+    <button class="theme-toggle" id="themeToggle" aria-label="切换主题">☾ 深色</button>
   </nav>
 
   <main class="dashboard">
@@ -28,7 +28,6 @@
     </div>
     <div class="data-timestamp" id="dataTimestamp"></div>
 
-    <!-- Section 1: 市场概览 -->
     <section class="section" id="market">
       <div class="section-header">
         <span class="section-label">01 · Market</span>
@@ -37,7 +36,6 @@
       <div class="index-grid" id="indexGrid"></div>
     </section>
 
-    <!-- Section 2: 估值分析 -->
     <section class="section" id="valuation">
       <div class="section-header">
         <span class="section-label">02 · Valuation</span>
@@ -46,7 +44,6 @@
       <div class="valuation-grid" id="valuationGrid"></div>
     </section>
 
-    <!-- Section 3: 定投推荐 -->
     <section class="section" id="dca">
       <div class="section-header">
         <span class="section-label">03 · DCA</span>
@@ -58,7 +55,6 @@
       </div>
     </section>
 
-    <!-- Section 4: 定投模拟器 -->
     <section class="section" id="simulator">
       <div class="section-header">
         <span class="section-label">04 · Simulator</span>
@@ -82,12 +78,11 @@
         </div>
         <div class="card sim-chart-container">
           <svg id="simChart" viewBox="0 0 500 220" preserveAspectRatio="xMidYMid meet"></svg>
-          <p class="sim-disclaimer">假设固定年化收益，实际收益受市场波动影响，仅供参考</p>
+          <p class="sim-disclaimer">假设固定年化收益，实际收益受市场波动影响，仅供参考。</p>
         </div>
       </div>
     </section>
 
-    <!-- Section 5 & 6: 学习 + 清单 -->
     <div class="bottom-grid">
       <section class="section" id="learning">
         <div class="section-header">
@@ -120,6 +115,7 @@
     投资有风险 · 本工具用于学习和预算演练 · 不构成投资建议
   </footer>
 
+  <script src="dashboard-core.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
