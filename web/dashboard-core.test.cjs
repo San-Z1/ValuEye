@@ -92,6 +92,12 @@ test("buildDataWarning reports stale generated data", () => {
   assert.match(warning, /超过 4 天未更新/);
 });
 
+test("buildDataUrl appends a cache-busting query parameter", () => {
+  const url = core.buildDataUrl(1780849800000);
+
+  assert.equal(url, "data.json?v=1780849800000");
+});
+
 test("calcFV computes monthly compound future value", () => {
   const value = core.calcFV(200, 3, 7.5);
 

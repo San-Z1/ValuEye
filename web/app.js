@@ -4,6 +4,7 @@ const {
   validateDataShape,
   normalizeData,
   buildDataWarning,
+  buildDataUrl,
   formatGeneratedAt,
   calcFV,
 } = window.PennyPilotCore;
@@ -20,7 +21,7 @@ let dataWarning = "";
 
 async function loadData() {
   try {
-    const response = await fetch("data.json");
+    const response = await fetch(buildDataUrl(), { cache: "no-store" });
     if (!response.ok) throw new Error("无法读取 data.json");
 
     const loaded = await response.json();

@@ -133,6 +133,10 @@
     return "";
   }
 
+  function buildDataUrl(now = Date.now()) {
+    return `data.json?v=${encodeURIComponent(String(now))}`;
+  }
+
   function calcFV(pmt, years, annualRate) {
     const r = annualRate / 100 / 12;
     const n = years * 12;
@@ -151,6 +155,7 @@
     validateDataShape,
     normalizeData,
     buildDataWarning,
+    buildDataUrl,
     calcFV,
   };
 });

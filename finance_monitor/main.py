@@ -40,9 +40,10 @@ try:  # pragma: no cover - import shim for direct script execution
         print_student_allocation,
         print_valuation_table,
     )
+    from .demo_data import build_demo_dashboard_data
     from .history import load_history
     from .insights import build_history_rows
-    from .json_export import export_to_json
+    from .json_export import DATA_FILE, export_to_json, validate_dashboard_payload
     from .valuation import calculate_monthly_plan, judge_valuation, save_history
 except ImportError:  # pragma: no cover
     from catalog import build_student_allocation, learning_prompts, product_catalog
@@ -69,10 +70,26 @@ except ImportError:  # pragma: no cover
         print_student_allocation,
         print_valuation_table,
     )
+    from demo_data import build_demo_dashboard_data
     from history import load_history
     from insights import build_history_rows
-    from json_export import export_to_json
+    from json_export import DATA_FILE, export_to_json, validate_dashboard_payload
     from valuation import calculate_monthly_plan, judge_valuation, save_history
+
+
+def _write_dashboard_payload(payload: dict[str, Any]) -> None:
+    validate_dashboard_payload(payload)
+    DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with open(DATA_FILE, "w", encoding="utf-8") as handle:
+        import json
+
+        json.dump(payload, handle, ensure_ascii=False, indent=2)
+
+
+def _run_demo_data_export() -> None:
+    payload = build_demo_dashboard_data()
+    _write_dashboard_payload(payload)
+    console.print(f"[green]已生成离线演示数据:[/] [cyan]{DATA_FILE}[/]")
 
 
 def _fetch_all_index_data() -> list[dict[str, Any]]:
@@ -230,6 +247,16 @@ def _run() -> None:
 
 def main() -> int:
     print_header()
+    if "--demo-data" in sys.argv:
+        try:
+            _run_demo_data_export()
+            print_footer()
+            return 0
+        except Exception as exc:
+            console.print(f"\n[red]离线演示数据生成失败: {exc}[/]")
+            traceback.print_exc()
+            return 1
+
     logged_in = False
     try:
         try:

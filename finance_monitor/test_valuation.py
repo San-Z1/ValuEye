@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+from pathlib import Path
 
 import pytest
 
@@ -14,11 +15,15 @@ try:  # pragma: no cover - support both root and package test execution
         classify_risk_score,
         product_catalog,
     )
+    from finance_monitor.demo_data import build_demo_dashboard_data
+    from finance_monitor import main as main_module
     from finance_monitor import valuation as valuation_module
     from finance_monitor.insights import build_history_rows, sparkline
     from finance_monitor.json_export import DATA_FILE, export_to_json, validate_dashboard_payload
 except ModuleNotFoundError:  # pragma: no cover
     from catalog import build_student_allocation, classify_risk_score, product_catalog
+    from demo_data import build_demo_dashboard_data
+    import main as main_module
     import valuation as valuation_module
     from insights import build_history_rows, sparkline
     from json_export import DATA_FILE, export_to_json, validate_dashboard_payload
@@ -255,3 +260,30 @@ class TestJsonExport:
                 },
                 "market_summary": {},
             })
+
+
+class TestDemoData:
+    def test_demo_dashboard_data_matches_export_schema(self):
+        data = build_demo_dashboard_data()
+        validate_dashboard_payload(data)
+
+        assert data["schema_version"] == 1
+        assert len(data["indices"]) == 7
+        assert len(data["funds"]) == 5
+        assert data["indices"][0]["name"] == "沪深300"
+        assert data["recommendation"]["risk_profile"] == "稳健型"
+        assert data["recommendation"]["allocations"][0]["amount"] > 0
+
+    def test_main_demo_data_mode_writes_dashboard_json(self, tmp_path, monkeypatch):
+        output = tmp_path / "data.json"
+        monkeypatch.setattr(main_module, "DATA_FILE", output)
+        monkeypatch.setattr(main_module.sys, "argv", ["finance_monitor.main", "--demo-data"])
+
+        exit_code = main_module.main()
+
+        assert exit_code == 0
+        assert Path(output).exists()
+        with open(output, encoding="utf-8") as handle:
+            data = json.load(handle)
+        assert data["schema_version"] == 1
+        assert data["indices"][0]["name"] == "沪深300"

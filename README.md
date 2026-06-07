@@ -31,6 +31,12 @@ python -m finance_monitor.main
 web/data.json
 ```
 
+离线课堂演示或网络不可用时，可以直接生成一份 schema v1 示例数据：
+
+```bash
+python -m finance_monitor.main --demo-data
+```
+
 前端可直接打开：
 
 ```text
@@ -97,6 +103,7 @@ node --check web/app.js
 ## 项目结构
 
 - `finance_monitor/main.py`：主流程编排、终端报告、JSON 导出。
+- `finance_monitor/demo_data.py`：离线演示数据，用于课堂展示和本地预览。
 - `finance_monitor/config.py`：指数、基金、阈值和学生预算配置。
 - `finance_monitor/data_fetcher.py`：BaoStock / akshare 数据获取。
 - `finance_monitor/valuation.py`：估值判断和定投计划。
