@@ -1,5 +1,6 @@
 /* ===== Default Fallback Data ===== */
 const DEFAULT_DATA = {
+  schema_version: 1,
   generated_at: null,
   indices: [
     { name: "沪深300", close: 3914.60, change_pct: 1.23, pe: 14.17, pe_percentile: 22.0, level: "低估", signal: "买入" },
@@ -41,24 +42,97 @@ const LEARN_PROMPTS = [
 ];
 
 const ALLOC_COLORS = ["#0284c7", "#7c3aed", "#eab308", "#16a34a", "#dc2626"];
+const SUPPORTED_SCHEMA_VERSION = 1;
 
 /* ===== Utilities ===== */
 const el = (id) => document.getElementById(id);
 const yuan = (v) => `${Math.round(v).toLocaleString()} 元`;
 const pct = (v) => v == null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
+const asNumber = (value, fallback = null) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+};
+const asArray = (value) => Array.isArray(value) ? value : [];
+const daysSince = (isoDate) => {
+  if (!isoDate) return null;
+  const generated = new Date(isoDate);
+  if (Number.isNaN(generated.getTime())) return null;
+  return Math.floor((Date.now() - generated.getTime()) / 86400000);
+};
+const formatGeneratedAt = (isoDate) => {
+  if (!isoDate) return "当前为示例数据";
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) return "数据时间不可用";
+  return `数据生成时间：${date.toLocaleString("zh-CN", { hour12: false })}`;
+};
 
 /* ===== Data Loading ===== */
 let appData = null;
 let usingFallback = false;
+let dataWarning = "";
+
+function validateDataShape(data) {
+  if (!data || typeof data !== "object") return "数据格式为空";
+  if (data.schema_version !== SUPPORTED_SCHEMA_VERSION) return "数据版本不兼容";
+  if (!Array.isArray(data.indices)) return "指数数据格式错误";
+  if (!Array.isArray(data.funds)) return "基金数据格式错误";
+  if (!data.recommendation || typeof data.recommendation !== "object") return "推荐数据格式错误";
+  return "";
+}
+
+function normalizeData(data) {
+  const recommendation = data.recommendation || {};
+  return {
+    schema_version: SUPPORTED_SCHEMA_VERSION,
+    generated_at: data.generated_at || null,
+    indices: asArray(data.indices).map((item) => ({
+      name: item.name || "未知指数",
+      close: asNumber(item.close),
+      change_pct: asNumber(item.change_pct),
+      pe: asNumber(item.pe),
+      pe_percentile: asNumber(item.pe_percentile),
+      level: item.level || "无数据",
+      signal: item.signal || "观望",
+    })),
+    funds: asArray(data.funds).map((item) => ({
+      name: item.name || "未知基金",
+      code: item.code || "",
+      nav: asNumber(item.nav),
+      change_pct: asNumber(item.change_pct),
+      category: item.category || "",
+    })),
+    recommendation: {
+      risk_profile: recommendation.risk_profile || "稳健型",
+      signal: recommendation.signal || "持有",
+      advice: recommendation.advice || "",
+      monthly_budget: asNumber(recommendation.monthly_budget, 200),
+      allocations: asArray(recommendation.allocations).map((item) => ({
+        fund: item.fund || "未命名基金",
+        code: item.code || "",
+        ratio: asNumber(item.ratio, 0),
+        amount: asNumber(item.amount, 0),
+      })),
+    },
+    market_summary: data.market_summary || {},
+  };
+}
 
 async function loadData() {
   try {
     const res = await fetch("data.json");
     if (!res.ok) throw new Error("not found");
-    appData = await res.json();
-  } catch {
+    const loaded = await res.json();
+    const shapeError = validateDataShape(loaded);
+    if (shapeError) throw new Error(shapeError);
+    appData = normalizeData(loaded);
+    const staleDays = daysSince(appData.generated_at);
+    if (staleDays != null && staleDays > 3) {
+      dataWarning = `数据已超过 ${staleDays} 天未更新。建议重新运行 python -m finance_monitor.main。`;
+    }
+  } catch (error) {
     appData = DEFAULT_DATA;
     usingFallback = true;
+    dataWarning = `显示默认示例数据：${error.message || "无法读取 data.json"}。`;
   }
 }
 
@@ -163,7 +237,7 @@ function renderDCA() {
         return `
           <div class="fund-card">
             <div class="name">${f.name}</div>
-            <div class="nav-value">${f.nav != null ? f.nav.toFixed(4) : "—"}</div>
+        <div class="nav-value">${f.nav != null ? f.nav.toFixed(4) : "—"}</div>
             <div class="nav-change ${isUp ? "change-up" : "change-down"}">${pct(f.change_pct)}</div>
           </div>`;
       }).join("")}
@@ -296,6 +370,11 @@ async function init() {
   if (usingFallback) {
     el("dataNotice").style.display = "block";
   }
+  if (dataWarning) {
+    el("dataNotice").textContent = dataWarning;
+    el("dataNotice").style.display = "block";
+  }
+  el("dataTimestamp").textContent = formatGeneratedAt(appData.generated_at);
 
   renderMarket();
   renderValuation();

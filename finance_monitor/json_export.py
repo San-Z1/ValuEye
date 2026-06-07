@@ -16,6 +16,7 @@ except ImportError:  # pragma: no cover
 
 WEB_DIR = BASE_DIR.parent / "web"
 DATA_FILE = WEB_DIR / "data.json"
+SCHEMA_VERSION = 1
 
 
 def _build_indices(
@@ -79,9 +80,47 @@ def _build_recommendation(
         "risk_profile": risk_profile,
         "signal": signal,
         "advice": advice,
+        "avg_pe_percentile": avg_pe_percentile,
         "monthly_budget": budget,
         "allocations": allocations,
     }
+
+
+def validate_dashboard_payload(payload: dict[str, Any]) -> None:
+    """Validate the dashboard JSON contract before writing it to disk."""
+    required_top_level = {
+        "schema_version",
+        "generated_at",
+        "indices",
+        "funds",
+        "recommendation",
+        "market_summary",
+    }
+    missing = required_top_level - set(payload)
+    if missing:
+        raise ValueError(f"dashboard payload missing fields: {sorted(missing)}")
+
+    if payload["schema_version"] != SCHEMA_VERSION:
+        raise ValueError("dashboard payload has unsupported schema_version")
+
+    if not isinstance(payload["indices"], list):
+        raise TypeError("dashboard payload indices must be a list")
+    if not isinstance(payload["funds"], list):
+        raise TypeError("dashboard payload funds must be a list")
+    if not isinstance(payload["recommendation"], dict):
+        raise TypeError("dashboard payload recommendation must be an object")
+
+    for index, item in enumerate(payload["indices"]):
+        for field in ("name", "level", "signal"):
+            if field not in item:
+                raise ValueError(f"indices[{index}] missing {field}")
+
+    recommendation = payload["recommendation"]
+    for field in ("risk_profile", "signal", "advice", "monthly_budget", "allocations"):
+        if field not in recommendation:
+            raise ValueError(f"recommendation missing {field}")
+    if not isinstance(recommendation["allocations"], list):
+        raise TypeError("recommendation allocations must be a list")
 
 
 def export_to_json(
@@ -95,6 +134,7 @@ def export_to_json(
 ) -> Path:
     """Write all market data to web/data.json and return the file path."""
     payload = {
+        "schema_version": SCHEMA_VERSION,
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "indices": _build_indices(indices_data, valuations),
         "funds": _build_funds(funds_data),
@@ -107,6 +147,7 @@ def export_to_json(
             "overall_advice": advice,
         },
     }
+    validate_dashboard_payload(payload)
 
     DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp_path = tempfile.mkstemp(

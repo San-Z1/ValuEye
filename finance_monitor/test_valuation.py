@@ -6,6 +6,8 @@ import json
 import os
 import tempfile
 
+import pytest
+
 try:  # pragma: no cover - support both root and package test execution
     from finance_monitor.catalog import (
         build_student_allocation,
@@ -14,12 +16,12 @@ try:  # pragma: no cover - support both root and package test execution
     )
     from finance_monitor import valuation as valuation_module
     from finance_monitor.insights import build_history_rows, sparkline
-    from finance_monitor.json_export import export_to_json, DATA_FILE
+    from finance_monitor.json_export import DATA_FILE, export_to_json, validate_dashboard_payload
 except ModuleNotFoundError:  # pragma: no cover
     from catalog import build_student_allocation, classify_risk_score, product_catalog
     import valuation as valuation_module
     from insights import build_history_rows, sparkline
-    from json_export import export_to_json, DATA_FILE
+    from json_export import DATA_FILE, export_to_json, validate_dashboard_payload
 
 judge_valuation = valuation_module.judge_valuation
 calculate_monthly_plan = valuation_module.calculate_monthly_plan
@@ -215,7 +217,9 @@ class TestJsonExport:
             data = json.load(f)
         assert len(data["indices"]) == 1
         assert len(data["funds"]) == 1
+        assert data["schema_version"] == 1
         assert data["recommendation"]["risk_profile"] == "稳健型"
+        assert data["recommendation"]["avg_pe_percentile"] == 24.4
         assert data["market_summary"]["avg_pe_percentile"] == 24.4
 
     def test_export_indices_have_valuation_fields(self, tmp_path, monkeypatch):
@@ -230,3 +234,24 @@ class TestJsonExport:
         assert idx["pe"] == 14.17
         assert idx["pe_percentile"] == 22.0
         assert idx["level"] == "低估"
+
+    def test_validate_dashboard_payload_rejects_missing_fields(self):
+        with pytest.raises(ValueError, match="missing fields"):
+            validate_dashboard_payload({"schema_version": 1})
+
+    def test_validate_dashboard_payload_rejects_bad_schema_version(self):
+        with pytest.raises(ValueError, match="unsupported schema_version"):
+            validate_dashboard_payload({
+                "schema_version": 999,
+                "generated_at": "2026-05-23T10:00:00",
+                "indices": [],
+                "funds": [],
+                "recommendation": {
+                    "risk_profile": "稳健型",
+                    "signal": "持有",
+                    "advice": "测试",
+                    "monthly_budget": 200,
+                    "allocations": [],
+                },
+                "market_summary": {},
+            })
