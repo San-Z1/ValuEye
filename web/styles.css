@@ -532,6 +532,24 @@ body {
   color: var(--text-secondary);
 }
 
+.learn-task,
+.learn-review {
+  border-radius: var(--radius);
+  font-size: 0.76rem;
+  margin-top: 8px;
+  padding: 8px;
+}
+
+.learn-task {
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+.learn-review {
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
 /* ===== Checklist ===== */
 .checklist label {
   display: flex;

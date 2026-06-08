@@ -141,6 +141,11 @@ test("scoreChecklist classifies investment readiness", () => {
   assert.equal(core.scoreChecklist(5, 5).level, "准备充分");
 });
 
+test("learning prompts include actionable task cards", () => {
+  assert.ok(core.LEARN_PROMPTS.length >= 4);
+  assert.ok(core.LEARN_PROMPTS.every((item) => item.title && item.prompt && item.task && item.review));
+});
+
 test("calcFV computes monthly compound future value", () => {
   const value = core.calcFV(200, 3, 7.5);
 

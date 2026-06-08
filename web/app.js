@@ -259,6 +259,8 @@ function renderLearning() {
     <div class="card learn-card">
       <strong>${index + 1}. ${item.title}</strong>
       <p>${item.prompt}</p>
+      <div class="learn-task">${item.task}</div>
+      <div class="learn-review">${item.review}</div>
     </div>
   `).join("");
 }

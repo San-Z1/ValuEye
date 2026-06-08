@@ -13,6 +13,7 @@ try:  # pragma: no cover - support both root and package test execution
     from finance_monitor.catalog import (
         build_student_allocation,
         classify_risk_score,
+        learning_prompts,
         product_catalog,
     )
     from finance_monitor.demo_data import build_demo_dashboard_data
@@ -21,7 +22,7 @@ try:  # pragma: no cover - support both root and package test execution
     from finance_monitor.insights import build_history_rows, sparkline
     from finance_monitor.json_export import DATA_FILE, export_to_json, validate_dashboard_payload
 except ModuleNotFoundError:  # pragma: no cover
-    from catalog import build_student_allocation, classify_risk_score, product_catalog
+    from catalog import build_student_allocation, classify_risk_score, learning_prompts, product_catalog
     from demo_data import build_demo_dashboard_data
     import main as main_module
     import valuation as valuation_module
@@ -196,6 +197,11 @@ class TestCatalog:
         products = product_catalog()
         assert len(products) >= 6
         assert all("risk_label" in item for item in products)
+
+    def test_learning_prompts_include_action_and_review(self):
+        prompts = learning_prompts()
+        assert len(prompts) >= 4
+        assert all({"title", "prompt", "task", "review"} <= set(item) for item in prompts)
 
 
 class TestJsonExport:
