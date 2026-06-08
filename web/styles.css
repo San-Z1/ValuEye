@@ -422,6 +422,92 @@ body {
   margin-top: 8px;
 }
 
+/* ===== Product Map ===== */
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+}
+
+.product-card {
+  border-top: 3px solid var(--accent);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 188px;
+}
+
+.product-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.product-category {
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.risk-pill {
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+.product-card h3 {
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+.product-meta {
+  color: var(--text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  gap: 8px;
+}
+
+.product-role,
+.product-tip {
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
+.product-tip {
+  margin-top: auto;
+}
+
+.risk-low {
+  border-top-color: var(--success);
+}
+
+.risk-low .risk-pill {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.risk-mid {
+  border-top-color: var(--warning);
+}
+
+.risk-mid .risk-pill {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.risk-high {
+  border-top-color: var(--danger);
+}
+
+.risk-high .risk-pill {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
 /* ===== Learning Cards ===== */
 .learn-grid {
   display: grid;

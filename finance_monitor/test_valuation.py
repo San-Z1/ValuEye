@@ -226,6 +226,8 @@ class TestJsonExport:
         assert data["recommendation"]["risk_profile"] == "稳健型"
         assert data["recommendation"]["avg_pe_percentile"] == 24.4
         assert data["market_summary"]["avg_pe_percentile"] == 24.4
+        assert len(data["products"]) >= 6
+        assert {"name", "risk_label", "liquidity", "starter_tip"} <= set(data["products"][0])
 
     def test_export_indices_have_valuation_fields(self, tmp_path, monkeypatch):
         indices, valuations, funds = self._make_sample_data()
@@ -259,6 +261,7 @@ class TestJsonExport:
                     "allocations": [],
                 },
                 "market_summary": {},
+                "products": [],
             })
 
 
@@ -270,6 +273,7 @@ class TestDemoData:
         assert data["schema_version"] == 1
         assert len(data["indices"]) == 7
         assert len(data["funds"]) == 5
+        assert len(data["products"]) >= 6
         assert data["indices"][0]["name"] == "沪深300"
         assert data["recommendation"]["risk_profile"] == "稳健型"
         assert data["recommendation"]["allocations"][0]["amount"] > 0

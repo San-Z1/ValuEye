@@ -10,8 +10,10 @@ from pathlib import Path
 from typing import Any
 
 try:  # pragma: no cover
+    from .catalog import product_catalog
     from .config import ASSET_CATEGORIES, BASE_DIR, DCA_PRESETS, MONTHLY_BUDGET
 except ImportError:  # pragma: no cover
+    from catalog import product_catalog
     from config import ASSET_CATEGORIES, BASE_DIR, DCA_PRESETS, MONTHLY_BUDGET
 
 WEB_DIR = BASE_DIR.parent / "web"
@@ -95,6 +97,7 @@ def validate_dashboard_payload(payload: dict[str, Any]) -> None:
         "funds",
         "recommendation",
         "market_summary",
+        "products",
     }
     missing = required_top_level - set(payload)
     if missing:
@@ -109,6 +112,8 @@ def validate_dashboard_payload(payload: dict[str, Any]) -> None:
         raise TypeError("dashboard payload funds must be a list")
     if not isinstance(payload["recommendation"], dict):
         raise TypeError("dashboard payload recommendation must be an object")
+    if not isinstance(payload["products"], list):
+        raise TypeError("dashboard payload products must be a list")
 
     for index, item in enumerate(payload["indices"]):
         for field in ("name", "level", "signal"):
@@ -121,6 +126,11 @@ def validate_dashboard_payload(payload: dict[str, Any]) -> None:
             raise ValueError(f"recommendation missing {field}")
     if not isinstance(recommendation["allocations"], list):
         raise TypeError("recommendation allocations must be a list")
+
+    for index, item in enumerate(payload["products"]):
+        for field in ("name", "category", "risk", "risk_label", "liquidity", "horizon", "role", "starter_tip"):
+            if field not in item:
+                raise ValueError(f"products[{index}] missing {field}")
 
 
 def export_to_json(
@@ -146,6 +156,7 @@ def export_to_json(
             "overall_signal": signal,
             "overall_advice": advice,
         },
+        "products": product_catalog(),
     }
     validate_dashboard_payload(payload)
 

@@ -158,6 +158,33 @@ function renderSimulator() {
   drawSimChart(monthly, years, rate);
 }
 
+function renderProducts() {
+  const products = appData?.products || [];
+  const grid = el("productGrid");
+  if (!products.length) {
+    grid.innerHTML = '<p style="color:var(--text-muted)">暂无产品地图数据</p>';
+    return;
+  }
+
+  grid.innerHTML = products.map((item) => {
+    const riskClass = item.risk <= 2 ? "risk-low" : item.risk <= 4 ? "risk-mid" : "risk-high";
+    return `
+      <article class="card product-card ${riskClass}">
+        <div class="product-card-top">
+          <span class="product-category">${item.category}</span>
+          <span class="risk-pill">R${item.risk} · ${item.risk_label}</span>
+        </div>
+        <h3>${item.name}</h3>
+        <div class="product-meta">
+          <span>流动性：${item.liquidity}</span>
+          <span>期限：${item.horizon}</span>
+        </div>
+        <p class="product-role">${item.role}</p>
+        <p class="product-tip">${item.starter_tip}</p>
+      </article>`;
+  }).join("");
+}
+
 function drawSimChart(monthly, years, rate) {
   const svg = el("simChart");
   const w = 500;
@@ -266,6 +293,7 @@ async function init() {
   renderValuation();
   renderDCA();
   renderSimulator();
+  renderProducts();
   renderLearning();
   initNavHighlight();
 

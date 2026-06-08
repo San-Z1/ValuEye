@@ -6,8 +6,10 @@ from datetime import datetime
 from typing import Any
 
 try:  # pragma: no cover
+    from .catalog import product_catalog
     from .json_export import SCHEMA_VERSION, validate_dashboard_payload
 except ImportError:  # pragma: no cover
+    from catalog import product_catalog
     from json_export import SCHEMA_VERSION, validate_dashboard_payload
 
 
@@ -157,6 +159,7 @@ def build_demo_dashboard_data(
             "overall_signal": "买入",
             "overall_advice": "示例市场处于历史偏低估区间，适合演示定投买入流程。",
         },
+        "products": product_catalog(),
     }
     validate_dashboard_payload(payload)
     return payload

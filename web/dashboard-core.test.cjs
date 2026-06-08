@@ -9,6 +9,7 @@ test("validateDataShape accepts the supported dashboard payload contract", () =>
     generated_at: "2026-06-08T10:00:00",
     indices: [],
     funds: [],
+    products: [],
     recommendation: {
       risk_profile: "稳健型",
       signal: "持有",
@@ -27,6 +28,7 @@ test("validateDataShape rejects incompatible schema versions", () => {
     schema_version: 999,
     indices: [],
     funds: [],
+    products: [],
     recommendation: {},
   });
 
@@ -38,6 +40,18 @@ test("validateDataShape accepts legacy payloads that omit schema_version", () =>
     generated_at: "2026-06-08T10:00:00",
     indices: [],
     funds: [],
+    products: [
+      {
+        name: "货币基金",
+        category: "现金管理",
+        risk: 1,
+        risk_label: "低风险",
+        liquidity: "T+0/T+1",
+        horizon: "随取随用",
+        role: "备用金",
+        starter_tip: "先放生活费。",
+      },
+    ],
     recommendation: {
       risk_profile: "稳健型",
       signal: "持有",
@@ -55,6 +69,18 @@ test("normalizeData upgrades legacy payloads to the supported schema version", (
     generated_at: "2026-06-08T10:00:00",
     indices: [],
     funds: [],
+    products: [
+      {
+        name: "货币基金",
+        category: "现金管理",
+        risk: 1,
+        risk_label: "低风险",
+        liquidity: "T+0/T+1",
+        horizon: "随取随用",
+        role: "备用金",
+        starter_tip: "先放生活费。",
+      },
+    ],
     recommendation: {
       risk_profile: "稳健型",
       monthly_budget: 200,
@@ -63,6 +89,7 @@ test("normalizeData upgrades legacy payloads to the supported schema version", (
   });
 
   assert.equal(normalized.schema_version, core.SUPPORTED_SCHEMA_VERSION);
+  assert.equal(normalized.products[0].name, "货币基金");
 });
 
 test("normalizeData coerces partial numeric fields without throwing", () => {
@@ -71,6 +98,7 @@ test("normalizeData coerces partial numeric fields without throwing", () => {
     generated_at: "2026-06-08T10:00:00",
     indices: [{ name: "沪深300", close: "3914.6", change_pct: "bad" }],
     funds: [{ name: "样例基金", nav: "1.2345", change_pct: "-0.5" }],
+    products: [{ name: "短债基金", risk: "2", liquidity: "T+1" }],
     recommendation: {
       monthly_budget: "300",
       allocations: [{ fund: "样例基金", ratio: "0.4", amount: "120" }],
@@ -81,6 +109,8 @@ test("normalizeData coerces partial numeric fields without throwing", () => {
   assert.equal(normalized.indices[0].close, 3914.6);
   assert.equal(normalized.indices[0].change_pct, null);
   assert.equal(normalized.funds[0].change_pct, -0.5);
+  assert.equal(normalized.products[0].risk, 2);
+  assert.equal(normalized.products[0].risk_label, "R2");
   assert.equal(normalized.recommendation.monthly_budget, 300);
   assert.equal(normalized.recommendation.allocations[0].amount, 120);
 });

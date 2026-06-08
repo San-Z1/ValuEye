@@ -26,6 +26,12 @@
       { name: "天弘中证红利ETF联接A", code: "013794", nav: 1.2341, change_pct: 0.18, category: "红利防守" },
       { name: "华夏恒生科技ETF联接A", code: "013402", nav: 0.8912, change_pct: 2.10, category: "港股卫星" },
     ],
+    products: [
+      { name: "余额宝 / 货币基金", category: "现金管理", risk: 1, risk_label: "低风险", liquidity: "T+0/T+1", horizon: "随取随用", role: "生活费缓冲、短期备用金", starter_tip: "先放 1-3 个月必要开销，再考虑更高波动资产。" },
+      { name: "短债基金", category: "稳健增值", risk: 2, risk_label: "中低风险", liquidity: "T+1/T+2", horizon: "3 个月以上", role: "现金缓冲之外的低波动仓位", starter_tip: "会有净值波动，不适合放马上要用的钱。" },
+      { name: "沪深300 / 中证A500 指数基金", category: "权益定投", risk: 4, risk_label: "中高风险", liquidity: "T+1/T+2", horizon: "3 年以上", role: "分享核心资产长期增长", starter_tip: "用小额定投，不用生活费赌短期涨跌。" },
+      { name: "黄金 ETF / 联接基金", category: "卫星配置", risk: 4, risk_label: "中高风险", liquidity: "T+1/T+2", horizon: "1 年以上", role: "小比例分散和情绪对冲", starter_tip: "控制在小仓位，避免追涨。" },
+    ],
     recommendation: {
       risk_profile: "稳健型",
       signal: "买入",
@@ -108,6 +114,16 @@
         nav: asNumber(item.nav),
         change_pct: asNumber(item.change_pct),
         category: item.category || "",
+      })),
+      products: asArray(data.products).map((item) => ({
+        name: item.name || "未命名产品",
+        category: item.category || "未分类",
+        risk: asNumber(item.risk, 0),
+        risk_label: item.risk_label || `R${asNumber(item.risk, 0)}`,
+        liquidity: item.liquidity || "未知",
+        horizon: item.horizon || "未知",
+        role: item.role || "",
+        starter_tip: item.starter_tip || "",
       })),
       recommendation: {
         risk_profile: recommendation.risk_profile || "稳健型",
