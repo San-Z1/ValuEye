@@ -20,14 +20,19 @@ try:  # pragma: no cover - support both root and package test execution
     from finance_monitor import main as main_module
     from finance_monitor import valuation as valuation_module
     from finance_monitor.insights import build_history_rows, sparkline
-    from finance_monitor.json_export import DATA_FILE, export_to_json, validate_dashboard_payload
+    from finance_monitor.json_export import (
+        DASHBOARD_SCHEMA_FIELDS,
+        DATA_FILE,
+        export_to_json,
+        validate_dashboard_payload,
+    )
 except ModuleNotFoundError:  # pragma: no cover
     from catalog import build_student_allocation, classify_risk_score, learning_prompts, product_catalog
     from demo_data import build_demo_dashboard_data
     import main as main_module
     import valuation as valuation_module
     from insights import build_history_rows, sparkline
-    from json_export import DATA_FILE, export_to_json, validate_dashboard_payload
+    from json_export import DASHBOARD_SCHEMA_FIELDS, DATA_FILE, export_to_json, validate_dashboard_payload
 
 judge_valuation = valuation_module.judge_valuation
 calculate_monthly_plan = valuation_module.calculate_monthly_plan
@@ -269,6 +274,28 @@ class TestJsonExport:
                 "market_summary": {},
                 "products": [],
             })
+
+    def test_dashboard_schema_fields_are_explicit(self):
+        assert DASHBOARD_SCHEMA_FIELDS["top_level"] == (
+            "schema_version",
+            "generated_at",
+            "indices",
+            "funds",
+            "recommendation",
+            "market_summary",
+            "products",
+        )
+        assert "avg_pe_percentile" in DASHBOARD_SCHEMA_FIELDS["recommendation"]
+        assert DASHBOARD_SCHEMA_FIELDS["products"] == (
+            "name",
+            "category",
+            "risk",
+            "risk_label",
+            "liquidity",
+            "horizon",
+            "role",
+            "starter_tip",
+        )
 
 
 class TestDemoData:

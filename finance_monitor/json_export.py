@@ -19,6 +19,36 @@ except ImportError:  # pragma: no cover
 WEB_DIR = BASE_DIR.parent / "web"
 DATA_FILE = WEB_DIR / "data.json"
 SCHEMA_VERSION = 1
+DASHBOARD_SCHEMA_FIELDS = {
+    "top_level": (
+        "schema_version",
+        "generated_at",
+        "indices",
+        "funds",
+        "recommendation",
+        "market_summary",
+        "products",
+    ),
+    "indices": ("name", "level", "signal"),
+    "recommendation": (
+        "risk_profile",
+        "signal",
+        "advice",
+        "avg_pe_percentile",
+        "monthly_budget",
+        "allocations",
+    ),
+    "products": (
+        "name",
+        "category",
+        "risk",
+        "risk_label",
+        "liquidity",
+        "horizon",
+        "role",
+        "starter_tip",
+    ),
+}
 
 
 def _build_indices(
@@ -90,15 +120,7 @@ def _build_recommendation(
 
 def validate_dashboard_payload(payload: dict[str, Any]) -> None:
     """Validate the dashboard JSON contract before writing it to disk."""
-    required_top_level = {
-        "schema_version",
-        "generated_at",
-        "indices",
-        "funds",
-        "recommendation",
-        "market_summary",
-        "products",
-    }
+    required_top_level = set(DASHBOARD_SCHEMA_FIELDS["top_level"])
     missing = required_top_level - set(payload)
     if missing:
         raise ValueError(f"dashboard payload missing fields: {sorted(missing)}")
@@ -116,19 +138,19 @@ def validate_dashboard_payload(payload: dict[str, Any]) -> None:
         raise TypeError("dashboard payload products must be a list")
 
     for index, item in enumerate(payload["indices"]):
-        for field in ("name", "level", "signal"):
+        for field in DASHBOARD_SCHEMA_FIELDS["indices"]:
             if field not in item:
                 raise ValueError(f"indices[{index}] missing {field}")
 
     recommendation = payload["recommendation"]
-    for field in ("risk_profile", "signal", "advice", "monthly_budget", "allocations"):
+    for field in DASHBOARD_SCHEMA_FIELDS["recommendation"]:
         if field not in recommendation:
             raise ValueError(f"recommendation missing {field}")
     if not isinstance(recommendation["allocations"], list):
         raise TypeError("recommendation allocations must be a list")
 
     for index, item in enumerate(payload["products"]):
-        for field in ("name", "category", "risk", "risk_label", "liquidity", "horizon", "role", "starter_tip"):
+        for field in DASHBOARD_SCHEMA_FIELDS["products"]:
             if field not in item:
                 raise ValueError(f"products[{index}] missing {field}")
 
