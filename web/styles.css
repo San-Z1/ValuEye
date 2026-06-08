@@ -551,6 +551,62 @@ body {
   height: 16px;
 }
 
+.checklist-score {
+  border-radius: var(--radius);
+  margin-top: 12px;
+  padding: 10px 12px;
+}
+
+.checklist-score div {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.checklist-score strong {
+  font-size: 0.88rem;
+}
+
+.checklist-score span,
+.checklist-score p {
+  font-size: 0.78rem;
+}
+
+.checklist-score p {
+  color: var(--text-secondary);
+}
+
+.checklist-danger {
+  background: var(--danger-bg);
+  border: 1px solid var(--danger-border);
+}
+
+.checklist-danger strong,
+.checklist-danger span {
+  color: var(--danger);
+}
+
+.checklist-warning {
+  background: var(--warning-bg);
+  border: 1px solid var(--warning-border);
+}
+
+.checklist-warning strong,
+.checklist-warning span {
+  color: var(--warning);
+}
+
+.checklist-success {
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
+}
+
+.checklist-success strong,
+.checklist-success span {
+  color: var(--success);
+}
+
 /* ===== Footer ===== */
 .app-footer {
   text-align: center;

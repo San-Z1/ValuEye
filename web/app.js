@@ -6,6 +6,7 @@ const {
   buildDataWarning,
   buildDataUrl,
   formatGeneratedAt,
+  scoreChecklist,
   calcFV,
 } = window.PennyPilotCore;
 
@@ -262,6 +263,21 @@ function renderLearning() {
   `).join("");
 }
 
+function renderChecklistScore() {
+  const inputs = Array.from(document.querySelectorAll(".checklist-input"));
+  const checked = inputs.filter((input) => input.checked).length;
+  const result = scoreChecklist(checked, inputs.length);
+  const score = el("checklistScore");
+  score.className = `checklist-score checklist-${result.tone}`;
+  score.innerHTML = `
+    <div>
+      <strong>${result.level}</strong>
+      <span>${result.checked}/${result.total}</span>
+    </div>
+    <p>${result.message}</p>
+  `;
+}
+
 function initNavHighlight() {
   const links = document.querySelectorAll(".nav-links a");
   const observer = new IntersectionObserver(
@@ -295,11 +311,15 @@ async function init() {
   renderSimulator();
   renderProducts();
   renderLearning();
+  renderChecklistScore();
   initNavHighlight();
 
   el("themeToggle").addEventListener("click", toggleTheme);
   ["simMonthly", "simYears", "simRate"].forEach((id) => {
     el(id).addEventListener("input", renderSimulator);
+  });
+  document.querySelectorAll(".checklist-input").forEach((input) => {
+    input.addEventListener("change", renderChecklistScore);
   });
 }
 

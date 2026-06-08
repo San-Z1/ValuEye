@@ -153,6 +153,40 @@
     return `data.json?v=${encodeURIComponent(String(now))}`;
   }
 
+  function scoreChecklist(checked, total) {
+    const safeTotal = Math.max(1, asNumber(total, 0));
+    const safeChecked = Math.max(0, Math.min(safeTotal, asNumber(checked, 0)));
+    const ratio = safeChecked / safeTotal;
+    if (ratio >= 0.8) {
+      return {
+        checked: safeChecked,
+        total: safeTotal,
+        ratio,
+        level: "准备充分",
+        tone: "success",
+        message: "可以进入小额、分散、按计划执行的阶段。",
+      };
+    }
+    if (ratio >= 0.5) {
+      return {
+        checked: safeChecked,
+        total: safeTotal,
+        ratio,
+        level: "基本准备",
+        tone: "warning",
+        message: "还差几项关键确认，建议先把未勾选项写清楚。",
+      };
+    }
+    return {
+      checked: safeChecked,
+      total: safeTotal,
+      ratio,
+      level: "准备不足",
+      tone: "danger",
+      message: "先补齐现金流、风险等级和退出条件，再考虑买入。",
+    };
+  }
+
   function calcFV(pmt, years, annualRate) {
     const r = annualRate / 100 / 12;
     const n = years * 12;
@@ -172,6 +206,7 @@
     normalizeData,
     buildDataWarning,
     buildDataUrl,
+    scoreChecklist,
     calcFV,
   };
 });

@@ -128,6 +128,19 @@ test("buildDataUrl appends a cache-busting query parameter", () => {
   assert.equal(url, "data.json?v=1780849800000");
 });
 
+test("scoreChecklist classifies investment readiness", () => {
+  assert.deepEqual(core.scoreChecklist(0, 5), {
+    checked: 0,
+    total: 5,
+    ratio: 0,
+    level: "准备不足",
+    tone: "danger",
+    message: "先补齐现金流、风险等级和退出条件，再考虑买入。",
+  });
+  assert.equal(core.scoreChecklist(3, 5).level, "基本准备");
+  assert.equal(core.scoreChecklist(5, 5).level, "准备充分");
+});
+
 test("calcFV computes monthly compound future value", () => {
   const value = core.calcFV(200, 3, 7.5);
 
